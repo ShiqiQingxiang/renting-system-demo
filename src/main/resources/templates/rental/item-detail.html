@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+  <title th:text="${item.name}"></title>
+</head>
+<body>
+<h1 th:text="${item.name}"></h1>
+<p th:text="${item.description}"></p>
+<p>每日租金: ¥<span th:text="${item.dailyPrice}"></span></p>
+
+<div th:if="${item.available}">
+  <form action="/rental/rent" method="post">
+    <input type="hidden" name="itemId" th:value="${item.id}">
+
+    <label>开始日期:
+      <input type="date" name="startDate" required>
+    </label>
+
+    <label>结束日期:
+      <input type="date" name="endDate" required>
+    </label>
+
+    <button type="submit">租赁</button>
+  </form>
+</div>
+<div th:unless="${item.available}">
+  <p>该物品当前不可用</p>
+</div>
+</body>
+</html>

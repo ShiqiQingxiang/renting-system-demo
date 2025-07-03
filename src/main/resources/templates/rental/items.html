@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <title>租赁物品列表</title>
+</head>
+<body>
+<h1>可租赁物品</h1>
+
+<form action="/rental/search" method="get">
+    <input type="text" name="keyword" placeholder="搜索物品...">
+    <button type="submit">搜索</button>
+</form>
+
+<div th:each="item : ${items}">
+    <h3 th:text="${item.name}"></h3>
+    <p th:text="${item.description}"></p>
+    <p>每日租金: ¥<span th:text="${item.dailyPrice}"></span></p>
+    <a th:href="@{/rental/item/{id}(id=${item.id})}">查看详情</a>
+</div>
+</body>
+</html>
