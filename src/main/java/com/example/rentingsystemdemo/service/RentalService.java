@@ -80,16 +80,16 @@ public class RentalService {
         return new RentalOrderDTO(savedOrder);
     }
 
-    public List<RentalOrder> getUserOrders(User user) {
-        return rentalOrderRepository.findByRenter(user);
-    }
-
-    public List<RentalOrder> getOwnerOrders(User owner) {
-        return rentalOrderRepository.findByItemOwner(owner);
+    @Transactional
+    public List<RentalOrderDTO> getUserOrders(User user) {
+        List<RentalOrder> orders = rentalOrderRepository.findByRenter(user);
+        return orders.stream()
+                .map(RentalOrderDTO::new)
+                .collect(Collectors.toList());
     }
 
     @Transactional
-    public RentalOrder completeOrder(Long orderId) {
+    public RentalOrderDTO completeOrder(Long orderId) {
         RentalOrder order = rentalOrderRepository.findById(orderId)
                 .orElseThrow(() -> new IllegalArgumentException("订单不存在"));
 
@@ -105,11 +105,11 @@ public class RentalService {
 
         rentalOrderRepository.save(order);
         itemRepository.save(item);
-        return order;
+        return new RentalOrderDTO(order);
     }
 
     @Transactional
-    public RentalOrder cancelOrder(Long orderId) {
+    public RentalOrderDTO cancelOrder(Long orderId) {
         RentalOrder order = rentalOrderRepository.findById(orderId)
                 .orElseThrow(() -> new IllegalArgumentException("订单不存在"));
 
@@ -125,6 +125,6 @@ public class RentalService {
 
         rentalOrderRepository.save(order);
         itemRepository.save(item);
-        return order;
+        return new RentalOrderDTO(order);
     }
 }

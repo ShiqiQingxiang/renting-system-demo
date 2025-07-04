@@ -78,20 +78,20 @@ public class RentalController {
 
     // 获取用户订单
     @GetMapping("/orders")
-    public ResponseEntity<List<RentalOrder>> getUserOrders(@AuthenticationPrincipal CustomUserDetails customUserDetails) {
+    public ResponseEntity<List<RentalOrderDTO>> getUserOrders(@AuthenticationPrincipal CustomUserDetails customUserDetails) {
         User user = customUserDetails.getUser();
         return ResponseEntity.ok(rentalService.getUserOrders(user));
     }
 
     // 完成订单
     @PostMapping("/complete-order/{id}")
-    public ResponseEntity<RentalOrder> completeOrder(@PathVariable Long id) {
+    public ResponseEntity<RentalOrderDTO> completeOrder(@PathVariable Long id) {
         return ResponseEntity.ok(rentalService.completeOrder(id));
     }
 
     // 取消订单
     @PostMapping("/cancel-order/{id}")
-    public ResponseEntity<RentalOrder> cancelOrder(@PathVariable Long id) {
+    public ResponseEntity<RentalOrderDTO> cancelOrder(@PathVariable Long id) {
         return ResponseEntity.ok(rentalService.cancelOrder(id));
     }
 
