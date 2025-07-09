@@ -8,8 +8,6 @@ import com.rental.auth.service.AuthService;
 import com.rental.auth.service.UserRegistrationService;
 import com.rental.common.response.ApiResponse;
 import com.rental.security.userdetails.CustomUserDetails;
-import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -26,7 +24,6 @@ import org.springframework.web.bind.annotation.*;
 @RequestMapping("/api/auth")
 @RequiredArgsConstructor
 @Slf4j
-@Tag(name = "认证管理", description = "用户认证相关接口")
 public class AuthController {
 
     private final AuthService authService;
@@ -36,7 +33,6 @@ public class AuthController {
      * 用户登录
      */
     @PostMapping("/login")
-    @Operation(summary = "用户登录", description = "用户使用用户名和密码登录系统")
     public ResponseEntity<ApiResponse<AuthService.LoginResponse>> login(
             @Valid @RequestBody LoginRequest request,
             HttpServletRequest httpRequest) {
@@ -58,7 +54,6 @@ public class AuthController {
      * 用户注册
      */
     @PostMapping("/register")
-    @Operation(summary = "用户注册", description = "新用户注册账号")
     public ResponseEntity<ApiResponse<String>> register(@Valid @RequestBody RegisterRequest request) {
         userRegistrationService.register(request);
         return ResponseEntity.ok(ApiResponse.success("注册成功", "注册成功"));
@@ -68,7 +63,6 @@ public class AuthController {
      * 刷新访问令牌
      */
     @PostMapping("/refresh")
-    @Operation(summary = "刷新令牌", description = "使用刷新令牌获取新的访问令牌")
     public ResponseEntity<ApiResponse<AuthService.TokenResponse>> refreshToken(
             @Valid @RequestBody RefreshTokenRequest request) {
 
@@ -80,7 +74,6 @@ public class AuthController {
      * 用户登出
      */
     @PostMapping("/logout")
-    @Operation(summary = "用户登出", description = "用户登出系统，撤销令牌")
     public ResponseEntity<ApiResponse<String>> logout(@RequestBody(required = false) LogoutRequest request) {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
 
@@ -99,7 +92,6 @@ public class AuthController {
      * 验证令牌
      */
     @GetMapping("/validate")
-    @Operation(summary = "验证令牌", description = "验证当前用户的访问令牌是否有效")
     public ResponseEntity<ApiResponse<AuthService.UserInfo>> validateToken() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
 
@@ -115,7 +107,6 @@ public class AuthController {
      * 获取当前用户信息
      */
     @GetMapping("/me")
-    @Operation(summary = "获取当前用户信息", description = "获取当前登录用户的详细信息")
     public ResponseEntity<ApiResponse<AuthService.UserInfo>> getCurrentUser() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
 
