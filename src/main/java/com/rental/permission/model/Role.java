@@ -1,6 +1,5 @@
 package com.rental.permission.model;
 
-import com.rental.user.model.User;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
@@ -48,14 +47,11 @@ public class Role {
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
 
-    @ManyToMany(mappedBy = "roles")
-    private Set<User> users;
-
     @ManyToMany(fetch = FetchType.LAZY)
     @JoinTable(
-            name = "role_permissions",
-            joinColumns = @JoinColumn(name = "role_id"),
-            inverseJoinColumns = @JoinColumn(name = "permission_id")
+        name = "role_permissions",
+        joinColumns = @JoinColumn(name = "role_id"),
+        inverseJoinColumns = @JoinColumn(name = "permission_id")
     )
     private Set<Permission> permissions;
 }

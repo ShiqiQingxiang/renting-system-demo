@@ -12,46 +12,41 @@ import java.util.Optional;
 @Repository
 public interface ItemCategoryRepository extends JpaRepository<ItemCategory, Long> {
 
-    // 基础查询
-    Optional<ItemCategory> findByName(String name);
+    // 查找根分类（没有父分类的分类）
+    List<ItemCategory> findByParentIsNullOrderBySortOrder();
 
-    boolean existsByName(String name);
-
-    List<ItemCategory> findByNameContaining(String name);
-
-    // 父子分类查询
-    List<ItemCategory> findByParentId(Long parentId);
-
-    List<ItemCategory> findByParentIsNull(); // 根分类
-
-    // 递归查询所有子分类
-    @Query("SELECT c FROM ItemCategory c WHERE c.parent.id = :parentId ORDER BY c.sortOrder")
-    List<ItemCategory> findChildrenByParentId(@Param("parentId") Long parentId);
-
-    // 按照排序顺序查询
-    List<ItemCategory> findAllByOrderBySortOrder();
-
+    // 根据父分类ID查找子分类
     List<ItemCategory> findByParentIdOrderBySortOrder(Long parentId);
 
-    // 查询有物品的分类
-    @Query("SELECT DISTINCT c FROM ItemCategory c JOIN c.items i WHERE i.status = 'AVAILABLE'")
-    List<ItemCategory> findCategoriesWithAvailableItems();
+    // 根据分类名称查找
+    Optional<ItemCategory> findByName(String name);
+
+    // 检查分类名称是否存在（排除指定ID）
+    boolean existsByNameAndIdNot(String name, Long id);
+
+    // 检查分类名称是否存在
+    boolean existsByName(String name);
+
+    // 根据父分类查找所有子分类
+    List<ItemCategory> findByParent(ItemCategory parent);
+
+    // 查询指定分类的所有子分类（递归查询）
+    @Query("SELECT c FROM ItemCategory c WHERE c.parent.id = :parentId OR c.id IN " +
+           "(SELECT c2.id FROM ItemCategory c2 WHERE c2.parent.id IN " +
+           "(SELECT c3.id FROM ItemCategory c3 WHERE c3.parent.id = :parentId))")
+    List<ItemCategory> findAllSubCategories(@Param("parentId") Long parentId);
+
+    // 查询分类树（包含所有层级）
+    @Query("SELECT c FROM ItemCategory c ORDER BY " +
+           "CASE WHEN c.parent IS NULL THEN c.sortOrder " +
+           "ELSE c.parent.sortOrder * 1000 + c.sortOrder END")
+    List<ItemCategory> findAllInTreeOrder();
 
     // 统计分类下的物品数量
     @Query("SELECT COUNT(i) FROM Item i WHERE i.category.id = :categoryId")
     long countItemsByCategoryId(@Param("categoryId") Long categoryId);
 
-    /**
-     * 获取分类的完整路径 (从根分类到当前分类)
-     * 例如: "电子产品 > 手机 > 苹果手机"
-     */
-    @Query(value = "WITH RECURSIVE category_path (id, name, path) AS (" +
-            "  SELECT id, name, name as path FROM item_categories WHERE id = :categoryId " +
-            "  UNION ALL " +
-            "  SELECT c.id, c.name, CONCAT(c.name, ' > ', cp.path) " +
-            "  FROM item_categories c " +
-            "  JOIN category_path cp ON c.id = cp.parent_id " +
-            ") " +
-            "SELECT path FROM category_path WHERE parent_id IS NULL LIMIT 1", nativeQuery = true)
-    String getCategoryPath(@Param("categoryId") Long categoryId);
+    // 查询有物品的分类
+    @Query("SELECT DISTINCT c FROM ItemCategory c INNER JOIN c.items i")
+    List<ItemCategory> findCategoriesWithItems();
 }

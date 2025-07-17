@@ -8,64 +8,89 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
-import java.time.LocalDateTime;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 
 @Repository
 public interface ContractRepository extends JpaRepository<Contract, Long> {
 
-    // 基础查询
+    /**
+     * 根据合同编号查找
+     */
     Optional<Contract> findByContractNo(String contractNo);
 
-    boolean existsByContractNo(String contractNo);
-
-    // 根据订单ID查询合同
+    /**
+     * 根据订单ID查找合同
+     */
     Optional<Contract> findByOrderId(Long orderId);
 
-    // 状态查询
+    /**
+     * 检查订单是否已有合同
+     */
+    boolean existsByOrderId(Long orderId);
+
+    /**
+     * 根据状态查找合同
+     */
     List<Contract> findByStatus(Contract.ContractStatus status);
 
-    Page<Contract> findByStatus(Contract.ContractStatus status, Pageable pageable);
+    /**
+     * 根据用户ID查找合同（通过订单关联）
+     */
+    @Query("SELECT c FROM Contract c WHERE c.order.user.id = :userId ORDER BY c.createdAt DESC")
+    List<Contract> findByOrderUserIdOrderByCreatedAtDesc(@Param("userId") Long userId);
 
-    // 模板查询
-    List<Contract> findByTemplateId(Long templateId);
-
-    // 时间查询
-    List<Contract> findBySignedAtBetween(LocalDateTime startTime, LocalDateTime endTime);
-
-    List<Contract> findByExpiresAtBetween(LocalDateTime startTime, LocalDateTime endTime);
-
-    // 查询即将过期的合同
-    @Query("SELECT c FROM Contract c WHERE c.status = 'SIGNED' AND c.expiresAt BETWEEN :startTime AND :endTime")
-    List<Contract> findContractsExpiringSoon(@Param("startTime") LocalDateTime startTime,
-                                           @Param("endTime") LocalDateTime endTime);
-
-    // 查询已过期的合同
-    @Query("SELECT c FROM Contract c WHERE c.status = 'SIGNED' AND c.expiresAt < :now")
-    List<Contract> findExpiredContracts(@Param("now") LocalDateTime now);
-
-    // 查询待签署的合同
-    @Query("SELECT c FROM Contract c WHERE c.status = 'DRAFT'")
-    List<Contract> findPendingContracts();
-
-    // 复合条件查询
-    @Query("SELECT c FROM Contract c WHERE " +
-           "(:orderId IS NULL OR c.order.id = :orderId) AND " +
-           "(:status IS NULL OR c.status = :status) AND " +
-           "(:templateId IS NULL OR c.template.id = :templateId)")
-    Page<Contract> findContractsByConditions(
-        @Param("orderId") Long orderId,
+    /**
+     * 复杂条件查询合同
+     */
+    @Query("""
+        SELECT c FROM Contract c 
+        LEFT JOIN c.order o 
+        LEFT JOIN o.user u 
+        WHERE (:keyword IS NULL OR c.contractNo LIKE %:keyword% OR u.username LIKE %:keyword% OR 
+               (u.profile IS NOT NULL AND u.profile.realName LIKE %:keyword%))
+        AND (:status IS NULL OR c.status = :status)
+        AND (:orderId IS NULL OR c.order.id = :orderId)
+        AND (:userId IS NULL OR o.user.id = :userId)
+        AND (:signedDateStart IS NULL OR DATE(c.signedAt) >= :signedDateStart)
+        AND (:signedDateEnd IS NULL OR DATE(c.signedAt) <= :signedDateEnd)
+        AND (:expiryDateStart IS NULL OR DATE(c.expiresAt) >= :expiryDateStart)
+        AND (:expiryDateEnd IS NULL OR DATE(c.expiresAt) <= :expiryDateEnd)
+        """)
+    Page<Contract> findContractsWithFilters(
+        @Param("keyword") String keyword,
         @Param("status") Contract.ContractStatus status,
-        @Param("templateId") Long templateId,
+        @Param("orderId") Long orderId,
+        @Param("userId") Long userId,
+        @Param("signedDateStart") LocalDate signedDateStart,
+        @Param("signedDateEnd") LocalDate signedDateEnd,
+        @Param("expiryDateStart") LocalDate expiryDateStart,
+        @Param("expiryDateEnd") LocalDate expiryDateEnd,
         Pageable pageable
     );
 
-    // 统计查询
-    long countByStatus(Contract.ContractStatus status);
+    /**
+     * 查找即将过期的合同
+     */
+    @Query("SELECT c FROM Contract c WHERE c.status = 'SIGNED' AND c.expiresAt <= :expiryDate")
+    List<Contract> findExpiringContracts(@Param("expiryDate") LocalDate expiryDate);
 
-    long countByTemplateId(Long templateId);
+    /**
+     * 统计各状态合同数量
+     */
+    @Query("SELECT c.status, COUNT(c) FROM Contract c GROUP BY c.status")
+    List<Object[]> countContractsByStatus();
 
-    @Query("SELECT COUNT(c) FROM Contract c WHERE c.createdAt >= :date")
-    long countNewContractsAfter(@Param("date") LocalDateTime date);
+    /**
+     * 根据模板ID统计合同数量
+     */
+    @Query("SELECT COUNT(c) FROM Contract c WHERE c.template.id = :templateId")
+    long countByTemplateId(@Param("templateId") Long templateId);
+
+    /**
+     * 查找用户的已签署合同
+     */
+    @Query("SELECT c FROM Contract c WHERE c.order.user.id = :userId AND c.status = 'SIGNED'")
+    List<Contract> findSignedContractsByUserId(@Param("userId") Long userId);
 }

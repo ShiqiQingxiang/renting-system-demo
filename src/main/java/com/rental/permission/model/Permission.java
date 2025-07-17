@@ -11,7 +11,6 @@ import org.hibernate.annotations.CreationTimestamp;
 
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.Set;
 
 @Entity
 @Table(name = "permissions", indexes = {
@@ -52,19 +51,17 @@ public class Permission {
     @OneToMany(mappedBy = "parent", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     private List<Permission> children;
 
-    @Column(name = "sort_order")
+    @Column(name = "sort_order", nullable = false)
     private Integer sortOrder = 0;
 
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
-    @ManyToMany(mappedBy = "permissions")
-    private Set<Role> roles;
-
+    // 权限类型枚举
     public enum PermissionType {
         MENU("菜单"),
-        BUTTON("���钮"),
+        BUTTON("按钮"),
         API("接口");
 
         private final String description;

@@ -10,6 +10,9 @@ import lombok.Data;
 @Schema(description = "用户登出请求")
 public class LogoutRequest {
 
-    @Schema(description = "会话ID（可选）", example = "session-id-here")
+    @Schema(description = "会话ID（可选）", example = "session_12345")
     private String sessionId;
+
+    @Schema(description = "是否登出所有设备", example = "false")
+    private Boolean logoutAllDevices = false;
 }

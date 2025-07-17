@@ -7,6 +7,8 @@ import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 
 import java.util.Collection;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @RequiredArgsConstructor
@@ -16,10 +18,20 @@ public class CustomUserDetails implements UserDetails {
 
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
-        // 根据用户角色集合返回权限
-        return user.getRoles().stream()
+        Set<GrantedAuthority> authorities = new HashSet<>();
+
+        // 添加角色权限（以ROLE_前缀）
+        user.getRoles().stream()
             .map(role -> new SimpleGrantedAuthority("ROLE_" + role.getName()))
-            .collect(Collectors.toList());
+            .forEach(authorities::add);
+
+        // 添加具体权限（通过角色获取权限）
+        user.getRoles().stream()
+            .flatMap(role -> role.getPermissions().stream())
+            .map(permission -> new SimpleGrantedAuthority(permission.getName()))
+            .forEach(authorities::add);
+
+        return authorities;
     }
 
     @Override

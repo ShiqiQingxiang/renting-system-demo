@@ -10,89 +10,128 @@ import org.springframework.stereotype.Repository;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
 @Repository
 public interface OrderRepository extends JpaRepository<Order, Long> {
 
-    // 基础查询
+    /**
+     * 根据订单号查找订单
+     */
     Optional<Order> findByOrderNo(String orderNo);
 
-    boolean existsByOrderNo(String orderNo);
+    /**
+     * 根据用户ID查找订单
+     */
+    List<Order> findByUserIdOrderByCreatedAtDesc(Long userId);
 
-    // 用户订单查询
-    List<Order> findByUserId(Long userId);
+    /**
+     * 根据用户ID分页查找订单
+     */
+    Page<Order> findByUserIdOrderByCreatedAtDesc(Long userId, Pageable pageable);
 
-    Page<Order> findByUserId(Long userId, Pageable pageable);
+    /**
+     * 根据状态查找订单
+     */
+    List<Order> findByStatusOrderByCreatedAtDesc(Order.OrderStatus status);
 
-    // 状态查询
-    List<Order> findByStatus(Order.OrderStatus status);
+    /**
+     * 根据状态分页查找订单
+     */
+    Page<Order> findByStatusOrderByCreatedAtDesc(Order.OrderStatus status, Pageable pageable);
 
-    Page<Order> findByStatus(Order.OrderStatus status, Pageable pageable);
+    /**
+     * 根据用户ID和状态查找订单
+     */
+    List<Order> findByUserIdAndStatusOrderByCreatedAtDesc(Long userId, Order.OrderStatus status);
 
-    Page<Order> findByUserIdAndStatus(Long userId, Order.OrderStatus status, Pageable pageable);
+    /**
+     * 统计用户订单数量
+     */
+    long countByUserId(Long userId);
 
-    // 日期范围查��
-    List<Order> findByStartDateBetween(LocalDate startDate, LocalDate endDate);
+    /**
+     * 统计状态订单数量
+     */
+    long countByStatus(Order.OrderStatus status);
 
-    List<Order> findByEndDateBetween(LocalDate startDate, LocalDate endDate);
+    /**
+     * 查找指定日期范围内的订单
+     */
+    @Query("SELECT o FROM Order o WHERE o.startDate >= :startDate AND o.endDate <= :endDate")
+    List<Order> findByDateRange(@Param("startDate") LocalDate startDate, @Param("endDate") LocalDate endDate);
 
-    List<Order> findByCreatedAtBetween(LocalDateTime startTime, LocalDateTime endTime);
+    /**
+     * 复杂条件搜索订单
+     */
+    @Query("SELECT DISTINCT o FROM Order o " +
+           "LEFT JOIN o.user u " +
+           "LEFT JOIN o.orderItems oi " +
+           "LEFT JOIN oi.item i " +
+           "LEFT JOIN i.category c " +
+           "WHERE (:orderNo IS NULL OR o.orderNo LIKE %:orderNo%) " +
+           "AND (:userId IS NULL OR o.user.id = :userId) " +
+           "AND (:username IS NULL OR u.username LIKE %:username%) " +
+           "AND (:status IS NULL OR o.status = :status) " +
+           "AND (:startDateFrom IS NULL OR o.startDate >= :startDateFrom) " +
+           "AND (:startDateTo IS NULL OR o.startDate <= :startDateTo) " +
+           "AND (:endDateFrom IS NULL OR o.endDate >= :endDateFrom) " +
+           "AND (:endDateTo IS NULL OR o.endDate <= :endDateTo) " +
+           "AND (:minAmount IS NULL OR o.totalAmount >= :minAmount) " +
+           "AND (:maxAmount IS NULL OR o.totalAmount <= :maxAmount) " +
+           "AND (:itemId IS NULL OR i.id = :itemId) " +
+           "AND (:itemName IS NULL OR i.name LIKE %:itemName%) " +
+           "AND (:categoryId IS NULL OR c.id = :categoryId)")
+    Page<Order> findBySearchCriteria(@Param("orderNo") String orderNo,
+                                   @Param("userId") Long userId,
+                                   @Param("username") String username,
+                                   @Param("status") Order.OrderStatus status,
+                                   @Param("startDateFrom") LocalDate startDateFrom,
+                                   @Param("startDateTo") LocalDate startDateTo,
+                                   @Param("endDateFrom") LocalDate endDateFrom,
+                                   @Param("endDateTo") LocalDate endDateTo,
+                                   @Param("minAmount") BigDecimal minAmount,
+                                   @Param("maxAmount") BigDecimal maxAmount,
+                                   @Param("itemId") Long itemId,
+                                   @Param("itemName") String itemName,
+                                   @Param("categoryId") Long categoryId,
+                                   Pageable pageable);
 
-    // 金额范围查询
-    List<Order> findByTotalAmountBetween(BigDecimal minAmount, BigDecimal maxAmount);
-
-    // 复合条件查询
-    @Query("SELECT o FROM Order o WHERE " +
-           "(:userId IS NULL OR o.user.id = :userId) AND " +
-           "(:status IS NULL OR o.status = :status) AND " +
-           "(:startDate IS NULL OR o.startDate >= :startDate) AND " +
-           "(:endDate IS NULL OR o.endDate <= :endDate) AND " +
-           "(:minAmount IS NULL OR o.totalAmount >= :minAmount) AND " +
-           "(:maxAmount IS NULL OR o.totalAmount <= :maxAmount)")
-    Page<Order> findOrdersByConditions(
-        @Param("userId") Long userId,
-        @Param("status") Order.OrderStatus status,
-        @Param("startDate") LocalDate startDate,
-        @Param("endDate") LocalDate endDate,
-        @Param("minAmount") BigDecimal minAmount,
-        @Param("maxAmount") BigDecimal maxAmount,
-        Pageable pageable
-    );
-
-    // 逾期订单查询
+    /**
+     * 查找需要归还的订单（超期）
+     */
     @Query("SELECT o FROM Order o WHERE o.status = 'IN_USE' AND o.endDate < :currentDate")
     List<Order> findOverdueOrders(@Param("currentDate") LocalDate currentDate);
 
-    // 即将到期订单查询
-    @Query("SELECT o FROM Order o WHERE o.status = 'IN_USE' AND o.endDate BETWEEN :startDate AND :endDate")
-    List<Order> findOrdersExpiringSoon(@Param("startDate") LocalDate startDate, @Param("endDate") LocalDate endDate);
+    /**
+     * 查找即将到期的订单
+     */
+    @Query("SELECT o FROM Order o WHERE o.status = 'IN_USE' AND o.endDate = :expiryDate")
+    List<Order> findOrdersExpiringOn(@Param("expiryDate") LocalDate expiryDate);
 
-    // 包含特定物品的订单
-    @Query("SELECT DISTINCT o FROM Order o JOIN o.orderItems oi WHERE oi.item.id = :itemId")
-    List<Order> findOrdersByItemId(@Param("itemId") Long itemId);
+    /**
+     * 统计用户在指定时间范围内的订单总金额
+     */
+    @Query("SELECT COALESCE(SUM(o.totalAmount), 0) FROM Order o " +
+           "WHERE o.user.id = :userId " +
+           "AND o.status IN ('PAID', 'IN_USE', 'RETURNED') " +
+           "AND o.createdAt >= :startDate AND o.createdAt <= :endDate")
+    BigDecimal sumUserOrderAmountInDateRange(@Param("userId") Long userId,
+                                           @Param("startDate") LocalDate startDate,
+                                           @Param("endDate") LocalDate endDate);
 
-    // 统计查询
-    long countByStatus(Order.OrderStatus status);
-
-    long countByUserId(Long userId);
-
-    @Query("SELECT COUNT(o) FROM Order o WHERE o.createdAt >= :date")
-    long countNewOrdersAfter(@Param("date") LocalDateTime date);
-
-    // 收入统计
-    @Query("SELECT SUM(o.totalAmount) FROM Order o WHERE o.status IN ('PAID', 'IN_USE', 'RETURNED') AND o.createdAt BETWEEN :startTime AND :endTime")
-    BigDecimal getTotalRevenueByDateRange(@Param("startTime") LocalDateTime startTime, @Param("endTime") LocalDateTime endTime);
-
-    @Query("SELECT SUM(o.totalAmount) FROM Order o WHERE o.status IN ('PAID', 'IN_USE', 'RETURNED')")
-    BigDecimal getTotalRevenue();
-
-    // 月度统计
-    @Query("SELECT YEAR(o.createdAt), MONTH(o.createdAt), COUNT(o), SUM(o.totalAmount) " +
-           "FROM Order o WHERE o.status IN ('PAID', 'IN_USE', 'RETURNED') " +
-           "GROUP BY YEAR(o.createdAt), MONTH(o.createdAt) " +
-           "ORDER BY YEAR(o.createdAt) DESC, MONTH(o.createdAt) DESC")
-    List<Object[]> getMonthlyOrderStatistics();
+    /**
+     * 检查物品在指定时间段是否有冲突的订单
+     */
+    @Query("SELECT COUNT(o) > 0 FROM Order o " +
+           "JOIN o.orderItems oi " +
+           "WHERE oi.item.id = :itemId " +
+           "AND o.status IN ('CONFIRMED', 'PAID', 'IN_USE') " +
+           "AND ((:startDate >= o.startDate AND :startDate <= o.endDate) " +
+           "OR (:endDate >= o.startDate AND :endDate <= o.endDate) " +
+           "OR (:startDate <= o.startDate AND :endDate >= o.endDate))")
+    boolean existsConflictingOrder(@Param("itemId") Long itemId,
+                                 @Param("startDate") LocalDate startDate,
+                                 @Param("endDate") LocalDate endDate);
 }

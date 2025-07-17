@@ -38,6 +38,7 @@ public class ContractTemplate {
     private String content;
 
     @Column(length = 20)
+    @Size(max = 20, message = "版本号长度不能超过20")
     private String version = "1.0";
 
     @Column(name = "is_active", nullable = false)

@@ -12,36 +12,56 @@ import java.util.Optional;
 @Repository
 public interface PermissionRepository extends JpaRepository<Permission, Long> {
 
-    // 基础查询
+    /**
+     * 根据名称查找权限
+     */
     Optional<Permission> findByName(String name);
 
-    boolean existsByName(String name);
-
-    // 按类型查询
+    /**
+     * 根据类型查找权限
+     */
     List<Permission> findByType(Permission.PermissionType type);
 
-    // 按资源路径查询
-    List<Permission> findByResourceContaining(String resource);
+    /**
+     * 查找所有顶级权限（无父权限）
+     */
+    List<Permission> findByParentIdIsNullOrderBySortOrder();
 
-    // 父子权限查询
-    List<Permission> findByParentId(Long parentId);
+    /**
+     * 根据父权限ID查找子权限
+     */
+    List<Permission> findByParentIdOrderBySortOrder(Long parentId);
 
-    List<Permission> findByParentIsNull(); // 根权限
+    /**
+     * 查找用户的所有权限
+     */
+    @Query("""
+        SELECT DISTINCT p FROM Permission p
+        JOIN RolePermission rp ON p.id = rp.permissionId
+        JOIN UserRole ur ON rp.roleId = ur.roleId
+        WHERE ur.userId = :userId
+        ORDER BY p.sortOrder
+        """)
+    List<Permission> findUserPermissions(@Param("userId") Long userId);
 
-    // 递归查询所有子权限
-    @Query("SELECT p FROM Permission p WHERE p.parent.id = :parentId ORDER BY p.sortOrder")
-    List<Permission> findChildrenByParentId(@Param("parentId") Long parentId);
+    /**
+     * 查找角色的所有权限
+     */
+    @Query("""
+        SELECT p FROM Permission p
+        JOIN RolePermission rp ON p.id = rp.permissionId
+        WHERE rp.roleId = :roleId
+        ORDER BY p.sortOrder
+        """)
+    List<Permission> findRolePermissions(@Param("roleId") Long roleId);
 
-    // 查询用户的所有权限
-    @Query("SELECT DISTINCT p FROM Permission p " +
-           "JOIN p.roles r " +
-           "JOIN r.users u " +
-           "WHERE u.id = :userId")
-    List<Permission> findByUserId(@Param("userId") Long userId);
+    /**
+     * 检查权限名称是否已存在（排除指定ID）
+     */
+    boolean existsByNameAndIdNot(String name, Long id);
 
-    // 按排序查询
-    List<Permission> findAllByOrderBySortOrder();
-
-    // 按类型和父级查询
-    List<Permission> findByTypeAndParentId(Permission.PermissionType type, Long parentId);
+    /**
+     * 检查是否存在子权限
+     */
+    boolean existsByParentId(Long parentId);
 }

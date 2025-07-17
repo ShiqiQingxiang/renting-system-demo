@@ -62,6 +62,7 @@ public class Contract {
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
 
+    // 合同状态枚举
     public enum ContractStatus {
         DRAFT("草稿"),
         SIGNED("已签署"),

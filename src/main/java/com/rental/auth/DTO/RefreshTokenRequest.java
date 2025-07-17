@@ -12,6 +12,6 @@ import lombok.Data;
 public class RefreshTokenRequest {
 
     @NotBlank(message = "刷新令牌不能为空")
-    @Schema(description = "刷新令牌", example = "your-refresh-token-here")
+    @Schema(description = "刷新令牌", example = "refresh_token_here")
     private String refreshToken;
 }

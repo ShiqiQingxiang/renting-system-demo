@@ -49,69 +49,56 @@ public class SecurityConfig {
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http.csrf(csrf -> csrf.disable())
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-            .authorizeHttpRequests(authz -> authz
-                // 公开访问的端点 - 注册和登录必须在最前面，使用更宽松的匹配
+            .authorizeHttpRequests(auth -> auth
+                // 公开的认证端点
+                .requestMatchers("/api/auth/login", "/api/auth/register", "/api/auth/refresh", "/api/items/available").permitAll()
+
+                // Swagger UI 相关端点 - 允许公开访问（修复版本）
                 .requestMatchers(
-                        "/api/auth/register",
-                        "/api/auth/login",
-                        "/api/auth/refresh"
+                    "/swagger-ui/**",
+                    "/swagger-ui.html",
+                    "/v3/api-docs/**",
+                    "/swagger-resources/**",
+                    "/webjars/**",
+                    "/swagger-ui/index.html"
                 ).permitAll()
-                // 其他公开端点
-                .requestMatchers(
-                        "/api/items/public/**",
-                        "/api/categories/public/**",
-                        "/items/public/**",
-                        "/categories/public/**",
-                        // Swagger相关
-                        "/swagger-ui/**",
-                        "/swagger-ui.html",
-                        "/api-docs/**",
-                        "/v3/api-docs/**",
-                        // 静态资源
-                        "/static/**",
-                        "/css/**",
-                        "/js/**",
-                        "/images/**",
-                        // 错误页面
-                        "/error",
-                        // H2控制台
-                        "/h2-console/**"
-                ).permitAll()
-                // 需要认证的端点
-                .requestMatchers("/api/auth/logout", "/api/auth/validate", "/api/auth/me").authenticated()
-                .requestMatchers("/auth/logout", "/auth/validate", "/auth/me").authenticated()
-                .requestMatchers("/api/admin/**").hasRole("ADMIN")
-                .requestMatchers("/api/finance/**").hasAnyRole("ADMIN", "FINANCE")
-                .requestMatchers("/api/management/**").hasAnyRole("ADMIN", "MANAGER")
-                .requestMatchers("/api/owner/**").hasAnyRole("ADMIN", "OWNER")
-                .requestMatchers("/api/renter/**").hasAnyRole("ADMIN", "RENTER")
-                // 其他所有请求都需要认证
+
+                // 健康检查端点
+                .requestMatchers("/actuator/health").permitAll()
+
+                // 用户检查端点（注册时需要）
+                .requestMatchers("/api/users/check/**").permitAll()
+
+                // 静态资源
+                .requestMatchers("/css/**", "/js/**", "/images/**", "/favicon.ico").permitAll()
+
+                // 文件上传和下载
+                .requestMatchers("/uploads/**").permitAll()
+
+                // 其他所有端点都需要认证
                 .anyRequest().authenticated()
             )
-            .exceptionHandling(exceptions -> exceptions
+            .exceptionHandling(ex -> ex
                 .authenticationEntryPoint(jwtAuthenticationEntryPoint)
                 .accessDeniedHandler(jwtAccessDeniedHandler)
             )
-            .headers(headers -> headers.frameOptions().disable()) // 允许H2控制台
             .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
     }
 
+    /**
+     * 审计功能 - 获取当前登录用户
+     */
     @Bean
-    public AuditorAware<Long> auditorProvider() {
+    public AuditorAware<String> auditorAware() {
         return () -> {
             var authentication = SecurityContextHolder.getContext().getAuthentication();
-            if (authentication == null || !authentication.isAuthenticated() ||
-                authentication.getPrincipal().equals("anonymousUser")) {
-                return Optional.empty();
+            if (authentication != null && authentication.isAuthenticated()
+                && authentication.getPrincipal() instanceof CustomUserDetails userDetails) {
+                return Optional.of(userDetails.getUsername());
             }
-
-            if (authentication.getPrincipal() instanceof CustomUserDetails userDetails) {
-                return Optional.of(userDetails.getUserId());
-            }
-
-            return Optional.empty();
+            return Optional.of("system");
         };
     }
 }

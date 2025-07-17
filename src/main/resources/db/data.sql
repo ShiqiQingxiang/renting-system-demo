@@ -152,11 +152,11 @@ WHERE name IN (
 -- 4. 创建默认管理员用户
 -- ================================
 
--- 创建管理员用户（密码：123456，已加密）
+-- 创建管理员用户（密码：123456，正确的BCrypt加密）
 INSERT INTO users (username, password, email, status, created_at, updated_at) VALUES
-('admin', '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9P4yPGEWNVfHEIS', 'admin@rental.com', 'ACTIVE', NOW(), NOW()),
-('manager', '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9P4yPGEWNVfHEIS', 'manager@rental.com', 'ACTIVE', NOW(), NOW()),
-('finance', '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9P4yPGEWNVfHEIS', 'finance@rental.com', 'ACTIVE', NOW(), NOW());
+('admin', '$2a$10$wvq6qQYJWV/avr//Bkq2oe5H3VPY0UO4.EfrILAE43M6mc6ruFfGu', 'admin@rental.com', 'ACTIVE', NOW(), NOW()),
+('manager', '$2a$10$wvq6qQYJWV/avr//Bkq2oe5H3VPY0UO4.EfrILAE43M6mc6ruFfGu', 'manager@rental.com', 'ACTIVE', NOW(), NOW()),
+('finance', '$2a$10$wvq6qQYJWV/avr//Bkq2oe5H3VPY0UO4.EfrILAE43M6mc6ruFfGu', 'finance@rental.com', 'ACTIVE', NOW(), NOW());
 
 -- 分配用户角色
 INSERT INTO user_roles (user_id, role_id) VALUES
@@ -211,15 +211,16 @@ INSERT INTO item_categories (name, description, parent_id, sort_order, created_a
 -- 6. 创建示例物品
 -- ================================
 
-INSERT INTO items (name, description, category_id, price_per_day, deposit, status, location, created_at, updated_at) VALUES
+INSERT INTO items (name, description, category_id, owner_id, price_per_day, deposit, status, location, approval_status, created_at, updated_at) VALUES
 -- 使用正确的category_id: 9=笔记本电脑, 7=摄影器材, 11=智能手机, 17=健身器材, 13=办公家具, 12=游戏设备
-('MacBook Pro 16英寸', '苹果MacBook Pro 16英寸，M1 Pro芯片，16GB内存，512GB存储', 9, 200.00, 8000.00, 'AVAILABLE', '北京市朝阳区', NOW(), NOW()),
-('佳能EOS R5', '佳能全画幅无反相机，4500万像素，支持8K视频录制', 7, 150.00, 12000.00, 'AVAILABLE', '上海市浦东新区', NOW(), NOW()),
-('iPhone 14 Pro', '苹果iPhone 14 Pro，256GB存储，深空黑色', 11, 80.00, 3000.00, 'AVAILABLE', '广州市天河区', NOW(), NOW()),
-('跑步机NordicTrack', '商用级跑步机，可折叠设计，多种运动模式', 17, 50.00, 2000.00, 'AVAILABLE', '深圳市南山区', NOW(), NOW()),
-('办公桌椅套装', '人体工学办公桌椅，升降式设计，适合长时间办公', 13, 30.00, 500.00, 'AVAILABLE', '杭州市西湖区', NOW(), NOW()),
-('大疆无人机Mini 3', 'DJI Mini 3无人机，4K摄像，30分钟续航', 7, 120.00, 2500.00, 'AVAILABLE', '成都市锦江区', NOW(), NOW()),
-('索尼PlayStation 5', '索尼PS5游戏机，825GB SSD，包含手柄', 12, 60.00, 2000.00, 'AVAILABLE', '重庆市渝中区', NOW(), NOW());
+-- owner_id=1 假设第一个管理员用户作为物品所有者
+('MacBook Pro 16英寸', '苹果MacBook Pro 16英寸，M1 Pro芯片，16GB内存，512GB存储', 9, 1, 200.00, 8000.00, 'AVAILABLE', '北京市朝阳区', 'APPROVED', NOW(), NOW()),
+('佳能EOS R5', '佳能全画幅无反相机，4500万像素，支持8K视频录制', 7, 1, 150.00, 12000.00, 'AVAILABLE', '上海市浦东新区', 'APPROVED', NOW(), NOW()),
+('iPhone 14 Pro', '苹果iPhone 14 Pro，256GB存储，深空黑色', 11, 1, 80.00, 3000.00, 'AVAILABLE', '广州市天河区', 'APPROVED', NOW(), NOW()),
+('跑步机NordicTrack', '商用级跑步机，可折叠设计，多种运动模式', 17, 1, 50.00, 2000.00, 'AVAILABLE', '深圳市南山区', 'APPROVED', NOW(), NOW()),
+('办公桌椅套装', '人体工学办公桌椅，升降式设计，适合长时间办公', 13, 1, 30.00, 500.00, 'AVAILABLE', '杭州市西湖区', 'APPROVED', NOW(), NOW()),
+('大疆无人机Mini 3', 'DJI Mini 3无人机，4K摄像，30分钟续航', 7, 1, 120.00, 2500.00, 'AVAILABLE', '成都市锦江区', 'APPROVED', NOW(), NOW()),
+('索尼PlayStation 5', '索尼PS5游戏机，825GB SSD，包含手柄', 12, 1, 60.00, 2000.00, 'AVAILABLE', '重庆市渝中区', 'APPROVED', NOW(), NOW());
 
 -- ================================
 -- 7. 创建合同模板

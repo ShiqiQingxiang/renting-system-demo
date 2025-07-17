@@ -9,77 +9,70 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
 @Repository
 public interface ItemRepository extends JpaRepository<Item, Long> {
-    // 基础查询
-    List<Item> findByNameContaining(String name);
 
-    Page<Item> findByNameContaining(String name, Pageable pageable);
-
-    // 状态查询
+    // 根据状态查询物品
     List<Item> findByStatus(Item.ItemStatus status);
 
-    Page<Item> findByStatus(Item.ItemStatus status, Pageable pageable);
-
-    // 分类查询
+    // 根据分类查询物品
     List<Item> findByCategoryId(Long categoryId);
 
-    Page<Item> findByCategoryId(Long categoryId, Pageable pageable);
+    // 根据所有者查询物品
+    List<Item> findByOwnerId(Long ownerId);
 
-    // 价格范围查询
-    List<Item> findByPricePerDayBetween(BigDecimal minPrice, BigDecimal maxPrice);
+    // 根据审核状态查询物品
+    List<Item> findByApprovalStatus(Item.ApprovalStatus approvalStatus);
 
+    // 查询可租赁的物品
+    @Query("SELECT i FROM Item i WHERE i.status = 'AVAILABLE' AND i.approvalStatus = 'APPROVED'")
+    List<Item> findAvailableItems();
+
+    // 分页查询可租赁的物品
+    @Query("SELECT i FROM Item i WHERE i.status = 'AVAILABLE' AND i.approvalStatus = 'APPROVED'")
+    Page<Item> findAvailableItems(Pageable pageable);
+
+    // 根据名称模糊查询
+    Page<Item> findByNameContainingIgnoreCase(String name, Pageable pageable);
+
+    // 根据价格范围查询
     Page<Item> findByPricePerDayBetween(BigDecimal minPrice, BigDecimal maxPrice, Pageable pageable);
+
+    // 根据位置查询
+    Page<Item> findByLocationContainingIgnoreCase(String location, Pageable pageable);
 
     // 复合查询
     @Query("SELECT i FROM Item i WHERE " +
+           "(:name IS NULL OR LOWER(i.name) LIKE LOWER(CONCAT('%', :name, '%'))) AND " +
            "(:categoryId IS NULL OR i.category.id = :categoryId) AND " +
            "(:status IS NULL OR i.status = :status) AND " +
+           "(:approvalStatus IS NULL OR i.approvalStatus = :approvalStatus) AND " +
+           "(:ownerId IS NULL OR i.owner.id = :ownerId) AND " +
            "(:minPrice IS NULL OR i.pricePerDay >= :minPrice) AND " +
            "(:maxPrice IS NULL OR i.pricePerDay <= :maxPrice) AND " +
-           "(:keyword IS NULL OR i.name LIKE %:keyword% OR i.description LIKE %:keyword%)")
-    Page<Item> findItemsByConditions(
+           "(:location IS NULL OR LOWER(i.location) LIKE LOWER(CONCAT('%', :location, '%')))")
+    Page<Item> findBySearchCriteria(
+        @Param("name") String name,
         @Param("categoryId") Long categoryId,
         @Param("status") Item.ItemStatus status,
+        @Param("approvalStatus") Item.ApprovalStatus approvalStatus,
+        @Param("ownerId") Long ownerId,
         @Param("minPrice") BigDecimal minPrice,
         @Param("maxPrice") BigDecimal maxPrice,
-        @Param("keyword") String keyword,
+        @Param("location") String location,
         Pageable pageable
     );
 
-    // 地区查询
-    List<Item> findByLocationContaining(String location);
-
-    // 可租用物品查询
-    @Query("SELECT i FROM Item i WHERE i.status = 'AVAILABLE'")
-    List<Item> findAvailableItems();
-
-    @Query("SELECT i FROM Item i WHERE i.status = 'AVAILABLE'")
-    Page<Item> findAvailableItems(Pageable pageable);
-
-    // 热门物品查询（根据订单数量）
-    @Query("SELECT i FROM Item i JOIN i.orderItems oi GROUP BY i ORDER BY COUNT(oi) DESC")
-    List<Item> findPopularItems(Pageable pageable);
-
     // 统计查询
     long countByStatus(Item.ItemStatus status);
-
+    long countByApprovalStatus(Item.ApprovalStatus approvalStatus);
+    long countByOwnerId(Long ownerId);
     long countByCategoryId(Long categoryId);
 
-    @Query("SELECT COUNT(i) FROM Item i WHERE i.createdAt >= :date")
-    long countNewItemsAfter(@Param("date") LocalDateTime date);
-
-    // 价格统计
-    @Query("SELECT AVG(i.pricePerDay) FROM Item i WHERE i.status = 'AVAILABLE'")
-    BigDecimal getAveragePricePerDay();
-
-    @Query("SELECT MIN(i.pricePerDay) FROM Item i WHERE i.status = 'AVAILABLE'")
-    BigDecimal getMinPricePerDay();
-
-    @Query("SELECT MAX(i.pricePerDay) FROM Item i WHERE i.status = 'AVAILABLE'")
-    BigDecimal getMaxPricePerDay();
+    // 查询待审核的物品
+    @Query("SELECT i FROM Item i WHERE i.approvalStatus = 'PENDING' ORDER BY i.createdAt ASC")
+    Page<Item> findPendingApprovalItems(Pageable pageable);
 }

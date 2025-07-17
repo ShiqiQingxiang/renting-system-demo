@@ -16,14 +16,14 @@ public class CustomUserDetailsService implements UserDetailsService {
 
     @Override
     public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
-        User user = userRepository.findByUsername(username)
+        User user = userRepository.findByUsernameWithRolesAndPermissions(username)
             .orElseThrow(() -> new UsernameNotFoundException("用户不存在: " + username));
 
         return new CustomUserDetails(user);
     }
 
     public UserDetails loadUserById(Long userId) throws UsernameNotFoundException {
-        User user = userRepository.findById(userId)
+        User user = userRepository.findByIdWithRolesAndPermissions(userId)
             .orElseThrow(() -> new UsernameNotFoundException("用户不存在: " + userId));
 
         return new CustomUserDetails(user);
