@@ -97,28 +97,28 @@ public class RoleController {
     @DeleteMapping("/{id}")
     @Operation(summary = "删除角色", description = "删除指定ID的角色")
     @PreAuthorize("hasAuthority('ROLE_MANAGE')")
-    public ResponseEntity<ApiResponse<Void>> deleteRole(
+    public ResponseEntity<ApiResponse<String>> deleteRole(
             @Parameter(description = "角色ID") @PathVariable Long id) {
         roleService.deleteRole(id);
-        return ResponseEntity.ok(ApiResponse.success("角色删除成功", null));
+        return ResponseEntity.ok(ApiResponse.success(null, "角色删除成功"));
     }
 
     @PostMapping("/assign-permissions")
     @Operation(summary = "为角色分配权限", description = "为指定角色分配权限")
     @PreAuthorize("hasAuthority('ROLE_MANAGE')")
-    public ResponseEntity<ApiResponse<Void>> assignPermissionsToRole(
+    public ResponseEntity<ApiResponse<String>> assignPermissionsToRole(
             @Valid @RequestBody RolePermissionAssignRequest request) {
         roleService.assignPermissionsToRole(request);
-        return ResponseEntity.ok(ApiResponse.success("权限分配成功", null));
+        return ResponseEntity.ok(ApiResponse.success(null, "权限分配成功"));
     }
 
     @DeleteMapping("/{roleId}/permissions/{permissionId}")
     @Operation(summary = "移除角色权限", description = "从角色中移除指定权限")
     @PreAuthorize("hasAuthority('ROLE_MANAGE')")
-    public ResponseEntity<ApiResponse<Void>> removePermissionFromRole(
+    public ResponseEntity<ApiResponse<String>> removePermissionFromRole(
             @Parameter(description = "角色ID") @PathVariable Long roleId,
             @Parameter(description = "权限ID") @PathVariable Long permissionId) {
         roleService.removePermissionFromRole(roleId, permissionId);
-        return ResponseEntity.ok(ApiResponse.success("权限移除成功", null));
+        return ResponseEntity.ok(ApiResponse.success(null, "权限移除成功"));
     }
 }

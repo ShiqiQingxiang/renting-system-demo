@@ -46,6 +46,7 @@ public class FinanceRecord {
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
+    @NotNull(message = "财务类型不能为空")
     private FinanceType type;
 
     @Column(nullable = false, length = 100)
@@ -53,8 +54,7 @@ public class FinanceRecord {
     private String category;
 
     @Column(nullable = false, precision = 12, scale = 2)
-    @NotNull(message = "金额不能为空")
-    @DecimalMin(value = "0", message = "金额不能为负数")
+    @DecimalMin(value = "0.0", message = "金额必须大于等于0")
     private BigDecimal amount;
 
     @Column(columnDefinition = "TEXT")
@@ -64,6 +64,9 @@ public class FinanceRecord {
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
+    /**
+     * 财务类型枚举
+     */
     public enum FinanceType {
         INCOME("收入"),
         EXPENSE("支出"),

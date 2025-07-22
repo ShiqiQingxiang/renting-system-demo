@@ -76,7 +76,6 @@ public class Payment {
     public enum PaymentMethod {
         ALIPAY("支付宝"),
         WECHAT("微信支付"),
-        CASH("现金"),
         BANK_TRANSFER("银行转账");
 
         private final String description;

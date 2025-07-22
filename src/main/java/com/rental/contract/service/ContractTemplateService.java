@@ -32,7 +32,6 @@ public class ContractTemplateService {
                 .map(this::convertToDTO)
                 .collect(Collectors.toList());
     }
-
     /**
      * 分页获取合同模板
      */

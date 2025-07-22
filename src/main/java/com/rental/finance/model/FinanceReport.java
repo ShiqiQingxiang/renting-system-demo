@@ -7,8 +7,6 @@ import lombok.Setter;
 import lombok.NoArgsConstructor;
 import lombok.AllArgsConstructor;
 import org.hibernate.annotations.CreationTimestamp;
-import org.hibernate.annotations.JdbcTypeCode;
-import org.hibernate.type.SqlTypes;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -31,14 +29,15 @@ public class FinanceReport {
 
     @Enumerated(EnumType.STRING)
     @Column(name = "report_type", nullable = false)
+    @NotNull(message = "报表类型不能为空")
     private ReportType reportType;
 
     @Column(name = "period_start", nullable = false)
-    @NotNull(message = "报表开始日期不能为空")
+    @NotNull(message = "期间开始日期不能为空")
     private LocalDate periodStart;
 
     @Column(name = "period_end", nullable = false)
-    @NotNull(message = "报表结束日期不能为空")
+    @NotNull(message = "期间结束日期不能为空")
     private LocalDate periodEnd;
 
     @Column(name = "total_income", precision = 15, scale = 2)
@@ -50,7 +49,6 @@ public class FinanceReport {
     @Column(name = "net_profit", precision = 15, scale = 2)
     private BigDecimal netProfit = BigDecimal.ZERO;
 
-    @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "report_data", columnDefinition = "JSON")
     private String reportData;
 
@@ -58,6 +56,9 @@ public class FinanceReport {
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
+    /**
+     * 报表类型枚举
+     */
     public enum ReportType {
         DAILY("日报"),
         WEEKLY("周报"),
@@ -73,5 +74,12 @@ public class FinanceReport {
         public String getDescription() {
             return description;
         }
+    }
+
+    /**
+     * 计算净利润
+     */
+    public void calculateNetProfit() {
+        this.netProfit = this.totalIncome.subtract(this.totalExpense);
     }
 }

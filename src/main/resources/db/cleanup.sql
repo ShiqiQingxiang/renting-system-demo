@@ -8,6 +8,10 @@ SET FOREIGN_KEY_CHECKS = 0;
 
 -- 删除所有可能存在的表（包括旧的表）
 DROP TABLE IF EXISTS rental_orders;
+DROP TABLE IF EXISTS review_helpfulness;
+DROP TABLE IF EXISTS review_replies;
+DROP TABLE IF EXISTS reviews;
+DROP TABLE IF EXISTS feedbacks;
 DROP TABLE IF EXISTS user_roles;
 DROP TABLE IF EXISTS role_permissions;
 DROP TABLE IF EXISTS user_sessions;

@@ -57,18 +57,6 @@ public class AlipayService {
         try {
             // 这里应该调用支付宝退款API
             // 实际实现需要使用支付宝SDK
-            /*
-            AlipayTradeRefundRequest refundRequest = new AlipayTradeRefundRequest();
-            AlipayTradeRefundModel model = new AlipayTradeRefundModel();
-            model.setOutTradeNo(originalPayment.getPaymentNo());
-            model.setRefundAmount(refundAmount.toString());
-            model.setRefundReason(refundReason);
-            model.setOutRequestNo(refundPayment.getPaymentNo());
-            refundRequest.setBizModel(model);
-
-            AlipayTradeRefundResponse response = alipayClient.execute(refundRequest);
-            return response.isSuccess();
-            */
 
             // 模拟退款成功
             log.info("支付宝退款处理成功");

@@ -375,12 +375,6 @@ public class PaymentServiceImpl implements PaymentService {
                 response.setQrCode("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAA...");
                 response.setNeedRedirect(false);
                 break;
-            case CASH:
-                payment.setStatus(Payment.PaymentStatus.SUCCESS);
-                paymentRepository.save(payment);
-                response.setStatus("SUCCESS");
-                updateOrderAfterPayment(payment);
-                break;
             case BANK_TRANSFER:
                 response.setPaymentUrl("请转账到指定账户，转账完成后联系客服确认");
                 response.setNeedRedirect(false);
@@ -428,7 +422,6 @@ public class PaymentServiceImpl implements PaymentService {
             case ALIPAY:
             case WECHAT:
                 return true; // 模拟退款成功
-            case CASH:
             case BANK_TRANSFER:
                 return true; // 现金和银行转账退款需要人工处理
             default:

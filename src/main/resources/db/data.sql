@@ -64,10 +64,22 @@ INSERT INTO permissions (name, description, type, resource, sort_order, created_
 ('NOTIFICATION_SEND', '发送通知', 'API', '/api/notifications/send', 81, NOW()),
 ('NOTIFICATION_MANAGE', '管理通知', 'API', '/api/notifications/**', 82, NOW()),
 
+-- 评价与反馈管理权限
+('REVIEW_VIEW', '查看评价', 'API', '/api/reviews/**', 90, NOW()),
+('REVIEW_CREATE', '创建评价', 'API', '/api/reviews', 91, NOW()),
+('REVIEW_REPLY', '回复评价', 'API', '/api/reviews/*/replies', 92, NOW()),
+('REVIEW_MODERATE', '审核评价', 'API', '/api/reviews/*/moderate', 93, NOW()),
+('REVIEW_DELETE', '删除评价', 'API', '/api/reviews/**', 94, NOW()),
+('FEEDBACK_VIEW', '查看反馈', 'API', '/api/feedbacks/**', 95, NOW()),
+('FEEDBACK_CREATE', '创建反馈', 'API', '/api/feedbacks', 96, NOW()),
+('FEEDBACK_PROCESS', '处理反馈', 'API', '/api/feedbacks/*/process', 97, NOW()),
+('FEEDBACK_ASSIGN', '分配反馈', 'API', '/api/feedbacks/*/assign', 98, NOW()),
+('REVIEW_ANALYTICS', '评价分析', 'API', '/api/reviews/analytics', 99, NOW()),
+
 -- 系统管理权限
-('SYSTEM_VIEW', '查看系统信息', 'API', '/api/system/**', 90, NOW()),
-('SYSTEM_CONFIG', '系统配置', 'API', '/api/system/config', 91, NOW()),
-('SYSTEM_LOG_VIEW', '查看系统日志', 'API', '/api/system/logs', 92, NOW());
+('SYSTEM_VIEW', '查看系统信息', 'API', '/api/system/**', 100, NOW()),
+('SYSTEM_CONFIG', '系统配置', 'API', '/api/system/config', 101, NOW()),
+('SYSTEM_LOG_VIEW', '查看系统日志', 'API', '/api/system/logs', 102, NOW());
 
 -- ================================
 -- 2. 初始化系统角色
@@ -100,7 +112,9 @@ WHERE name IN (
     'PAYMENT_VIEW', 'PAYMENT_PROCESS', 'PAYMENT_REFUND',
     'CONTRACT_VIEW', 'CONTRACT_CREATE', 'CONTRACT_TEMPLATE_MANAGE',
     'FINANCE_VIEW', 'FINANCE_REPORT_VIEW',
-    'NOTIFICATION_VIEW', 'NOTIFICATION_SEND'
+    'NOTIFICATION_VIEW', 'NOTIFICATION_SEND',
+    'REVIEW_VIEW', 'REVIEW_MODERATE', 'REVIEW_ANALYTICS',
+    'FEEDBACK_VIEW', 'FEEDBACK_PROCESS', 'FEEDBACK_ASSIGN'
 );
 
 -- 操作员权限（基础操作权限）
@@ -113,7 +127,9 @@ WHERE name IN (
     'ORDER_VIEW', 'ORDER_AUDIT', 'ORDER_RETURN',
     'PAYMENT_VIEW',
     'CONTRACT_VIEW',
-    'NOTIFICATION_VIEW'
+    'NOTIFICATION_VIEW',
+    'REVIEW_VIEW', 'REVIEW_MODERATE',
+    'FEEDBACK_VIEW', 'FEEDBACK_PROCESS'
 );
 
 -- 财务人员权限（财务相关权限）
@@ -125,7 +141,7 @@ WHERE name IN (
     'FINANCE_VIEW', 'FINANCE_RECORD_MANAGE', 'FINANCE_REPORT_VIEW', 'FINANCE_REPORT_GENERATE'
 );
 
--- 物品拥有者权限（管理自己的物品）
+-- 物品拥有者权限（管理自己的物品和评价回复）
 INSERT INTO role_permissions (role_id, permission_id)
 SELECT 5, id FROM permissions
 WHERE name IN (
@@ -133,7 +149,8 @@ WHERE name IN (
     'CATEGORY_VIEW',
     'ORDER_VIEW',
     'CONTRACT_VIEW', 'CONTRACT_SIGN',
-    'NOTIFICATION_VIEW'
+    'NOTIFICATION_VIEW',
+    'REVIEW_VIEW', 'REVIEW_REPLY'
 );
 
 -- 客户权限（基础用户权限）
@@ -145,7 +162,9 @@ WHERE name IN (
     'ORDER_VIEW', 'ORDER_CREATE', 'ORDER_CANCEL',
     'PAYMENT_VIEW',
     'CONTRACT_VIEW', 'CONTRACT_SIGN',
-    'NOTIFICATION_VIEW'
+    'NOTIFICATION_VIEW',
+    'REVIEW_VIEW', 'REVIEW_CREATE',
+    'FEEDBACK_CREATE'
 );
 
 -- ================================

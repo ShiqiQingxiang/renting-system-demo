@@ -203,6 +203,7 @@ public class PaymentController {
         request.setCreatedDateFrom(createdDateFrom);
         request.setCreatedDateTo(createdDateTo);
         request.setThirdPartyTransactionId(thirdPartyTransactionId);
+        request.setPaymentNo(paymentNo);
 
         Page<PaymentDto> result = paymentService.searchPayments(request, pageable);
         return ResponseEntity.ok(ApiResponse.success(result));

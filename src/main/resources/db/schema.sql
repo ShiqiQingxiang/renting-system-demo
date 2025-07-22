@@ -172,6 +172,8 @@ CREATE TABLE items (
     approval_comment TEXT COMMENT '审核评论',
     approved_by BIGINT COMMENT '审核人ID',
     approved_at TIMESTAMP NULL COMMENT '审核时间',
+    average_rating DECIMAL(3, 2) DEFAULT 0.00 COMMENT '平均评分',
+    rating_count INT DEFAULT 0 COMMENT '评价数量',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
     FOREIGN KEY (category_id) REFERENCES item_categories(id) ON DELETE SET NULL,
@@ -182,7 +184,8 @@ CREATE TABLE items (
     INDEX idx_owner_id (owner_id),
     INDEX idx_status (status),
     INDEX idx_approval_status (approval_status),
-    INDEX idx_price (price_per_day)
+    INDEX idx_price (price_per_day),
+    INDEX idx_average_rating (average_rating)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='物品表';
 
 -- ================================
@@ -236,7 +239,7 @@ CREATE TABLE payments (
     order_id BIGINT NOT NULL COMMENT '订单ID',
     amount DECIMAL(12, 2) NOT NULL COMMENT '支付金额',
     payment_method ENUM('ALIPAY', 'WECHAT', 'CASH', 'BANK_TRANSFER') NOT NULL COMMENT '支付方式',
-    payment_type ENUM('RENTAL', 'DEPOSIT', 'REFUND') NOT NULL COMMENT '支付��型',
+    payment_type ENUM('RENTAL', 'DEPOSIT', 'REFUND') NOT NULL COMMENT '支付类型',
     status ENUM('PENDING', 'SUCCESS', 'FAILED', 'CANCELLED') DEFAULT 'PENDING' COMMENT '支付状态',
     third_party_transaction_id VARCHAR(255) COMMENT '第三方交易ID',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
@@ -336,7 +339,104 @@ CREATE TABLE finance_reports (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='财务报表表';
 
 -- ================================
--- 9. 通知相关表
+-- 9. 评价与反馈相关表
+-- ================================
+
+-- 评价表
+CREATE TABLE reviews (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    review_no VARCHAR(64) UNIQUE NOT NULL COMMENT '评价编号',
+    order_id BIGINT NOT NULL COMMENT '订单ID',
+    item_id BIGINT NOT NULL COMMENT '物品ID',
+    reviewer_id BIGINT NOT NULL COMMENT '评价者ID',
+    owner_id BIGINT NOT NULL COMMENT '物品拥有者ID',
+    rating INT NOT NULL COMMENT '评分(1-5)',
+    quality_rating INT COMMENT '物品质量评分(1-5)',
+    service_rating INT COMMENT '服务评分(1-5)',
+    delivery_rating INT COMMENT '配送评分(1-5)',
+    title VARCHAR(200) COMMENT '评价标题',
+    content TEXT COMMENT '评价内容',
+    images TEXT COMMENT '评价图片',
+    review_type ENUM('ORDER', 'ITEM', 'SERVICE') DEFAULT 'ORDER' COMMENT '评价类型',
+    status ENUM('PENDING', 'APPROVED', 'REJECTED', 'HIDDEN') DEFAULT 'PENDING' COMMENT '审核状态',
+    is_anonymous BOOLEAN DEFAULT FALSE COMMENT '是否匿名',
+    helpful_count INT DEFAULT 0 COMMENT '有用数',
+    reply_count INT DEFAULT 0 COMMENT '回复数',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE RESTRICT,
+    FOREIGN KEY (item_id) REFERENCES items(id) ON DELETE RESTRICT,
+    FOREIGN KEY (reviewer_id) REFERENCES users(id) ON DELETE RESTRICT,
+    FOREIGN KEY (owner_id) REFERENCES users(id) ON DELETE RESTRICT,
+    INDEX idx_review_no (review_no),
+    INDEX idx_order_id (order_id),
+    INDEX idx_item_id (item_id),
+    INDEX idx_reviewer_id (reviewer_id),
+    INDEX idx_owner_id (owner_id),
+    INDEX idx_rating (rating),
+    INDEX idx_status (status),
+    INDEX idx_created_at (created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='评价表';
+
+-- 评价回复表
+CREATE TABLE review_replies (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    review_id BIGINT NOT NULL COMMENT '评价ID',
+    replier_id BIGINT NOT NULL COMMENT '回复者ID',
+    content TEXT NOT NULL COMMENT '回复内容',
+    reply_type ENUM('OWNER', 'ADMIN', 'CUSTOMER_SERVICE') DEFAULT 'OWNER' COMMENT '回复类型',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    FOREIGN KEY (review_id) REFERENCES reviews(id) ON DELETE CASCADE,
+    FOREIGN KEY (replier_id) REFERENCES users(id) ON DELETE RESTRICT,
+    INDEX idx_review_id (review_id),
+    INDEX idx_replier_id (replier_id),
+    INDEX idx_created_at (created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='评价回复表';
+
+-- 反馈表
+CREATE TABLE feedbacks (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    feedback_no VARCHAR(64) UNIQUE NOT NULL COMMENT '反馈编号',
+    user_id BIGINT NOT NULL COMMENT '反馈用户ID',
+    type ENUM('COMPLAINT', 'SUGGESTION', 'BUG_REPORT', 'FEATURE_REQUEST') NOT NULL COMMENT '反馈类型',
+    category VARCHAR(100) COMMENT '反馈分类',
+    title VARCHAR(200) NOT NULL COMMENT '反馈标题',
+    content TEXT NOT NULL COMMENT '反馈内容',
+    attachments TEXT COMMENT '附件',
+    priority ENUM('LOW', 'MEDIUM', 'HIGH', 'URGENT') DEFAULT 'MEDIUM' COMMENT '优先级',
+    status ENUM('OPEN', 'IN_PROGRESS', 'RESOLVED', 'CLOSED') DEFAULT 'OPEN' COMMENT '处理状态',
+    assigned_to BIGINT COMMENT '分配给客服ID',
+    resolution TEXT COMMENT '处理结果',
+    resolved_at TIMESTAMP NULL COMMENT '解决时间',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE RESTRICT,
+    FOREIGN KEY (assigned_to) REFERENCES users(id) ON DELETE SET NULL,
+    INDEX idx_feedback_no (feedback_no),
+    INDEX idx_user_id (user_id),
+    INDEX idx_type (type),
+    INDEX idx_status (status),
+    INDEX idx_priority (priority),
+    INDEX idx_assigned_to (assigned_to),
+    INDEX idx_created_at (created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='反馈表';
+
+-- 评价有用性表
+CREATE TABLE review_helpfulness (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    review_id BIGINT NOT NULL COMMENT '评价ID',
+    user_id BIGINT NOT NULL COMMENT '用户ID',
+    is_helpful BOOLEAN NOT NULL COMMENT '是否有用',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    FOREIGN KEY (review_id) REFERENCES reviews(id) ON DELETE CASCADE,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE RESTRICT,
+    UNIQUE KEY uk_review_user (review_id, user_id),
+    INDEX idx_review_id (review_id),
+    INDEX idx_user_id (user_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='评价有用性表';
+
+-- ================================
+-- 10. 通知相关表
 -- ================================
 
 -- 通知表
@@ -356,3 +456,12 @@ CREATE TABLE notifications (
     INDEX idx_status (status),
     INDEX idx_created_at (created_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='通知表';
+
+-- ================================
+-- 11. 索引优化和触发器
+-- ================================
+
+-- 创建全文搜索索引
+ALTER TABLE items ADD FULLTEXT(name, description, features);
+ALTER TABLE reviews ADD FULLTEXT(title, content);
+ALTER TABLE feedbacks ADD FULLTEXT(title, content);
