@@ -5,6 +5,7 @@ import com.rental.common.exception.ResourceNotFoundException;
 import com.rental.order.model.Order;
 import com.rental.order.repository.OrderRepository;
 import com.rental.payment.DTO.*;
+import com.rental.payment.integration.alipay.AlipayService;
 import com.rental.payment.model.Payment;
 import com.rental.payment.model.PaymentRecord;
 import com.rental.payment.repository.PaymentRepository;
@@ -24,7 +25,9 @@ import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @Service
@@ -36,6 +39,7 @@ public class PaymentServiceImpl implements PaymentService {
     private final PaymentRecordRepository paymentRecordRepository;
     private final OrderRepository orderRepository;
     private final UserRepository userRepository;
+    private final AlipayService alipayService;
 
     @Override
     @Transactional
@@ -124,6 +128,57 @@ public class PaymentServiceImpl implements PaymentService {
         }
 
         log.info("支付回调处理完成，支付单号：{}, 状态：{}", request.getPaymentNo(), newStatus);
+    }
+
+    @Override
+    @Transactional
+    public void handleAlipayCallback(PaymentCallbackRequest request) {
+        log.info("处理支付宝回调，支付单号：{}", request.getPaymentNo());
+
+        // 验证支付宝签名
+        if (!verifyAlipaySign(request)) {
+            log.warn("支付宝回调签名验证失败，支付单号：{}", request.getPaymentNo());
+            return;
+        }
+
+        // 直接处理业务逻辑，跳过重复的签名验证
+        handlePaymentCallbackWithoutSignVerification(request);
+    }
+
+    /**
+     * 处理支付回调
+     */
+    @Transactional
+    private void handlePaymentCallbackWithoutSignVerification(PaymentCallbackRequest request) {
+        log.info("处理支付回调业务逻辑，支付单号：{}", request.getPaymentNo());
+
+        Payment payment = paymentRepository.findByPaymentNo(request.getPaymentNo())
+            .orElseThrow(() -> new ResourceNotFoundException("支付记录不存在"));
+
+        Payment.PaymentStatus newStatus = parsePaymentStatus(request.getStatus());
+        Payment.PaymentStatus oldStatus = payment.getStatus();
+
+        // 防止重复处理
+        if (oldStatus == newStatus && newStatus == Payment.PaymentStatus.SUCCESS) {
+            log.info("支付状态未变化且已成功，跳过处理，支付单号：{}", request.getPaymentNo());
+            return;
+        }
+
+        // 更新支付状态
+        payment.setStatus(newStatus);
+        payment.setThirdPartyTransactionId(request.getThirdPartyTransactionId());
+        paymentRepository.save(payment);
+
+        // 创建支付记录
+        String responseData = convertToJson(request.getRawData());
+        createPaymentRecord(payment, newStatus, responseData, request.getErrorMessage());
+
+        // 如果支付成功，更新订单状态
+        if (newStatus == Payment.PaymentStatus.SUCCESS && oldStatus != Payment.PaymentStatus.SUCCESS) {
+            updateOrderAfterPayment(payment);
+        }
+
+        log.info("支付回调处理完成，支付单号：{}, 状态：{} -> {}", request.getPaymentNo(), oldStatus, newStatus);
     }
 
     @Override
@@ -341,8 +396,12 @@ public class PaymentServiceImpl implements PaymentService {
     public String generatePaymentNo() {
         LocalDate today = LocalDate.now();
         String dateStr = today.format(DateTimeFormatter.ofPattern("yyyyMMdd"));
-        long count = paymentRepository.count() + 1;
-        return "PAY" + dateStr + String.format("%06d", count);
+
+        // 使用时间戳和随机数确保唯一性
+        long timestamp = System.currentTimeMillis();
+        int random = (int)(Math.random() * 1000);
+
+        return String.format("PAY%s%d%03d", dateStr, timestamp % 100000, random);
     }
 
     // 私有辅助方法
@@ -362,31 +421,28 @@ public class PaymentServiceImpl implements PaymentService {
     }
 
     private PaymentResponse processThirdPartyPayment(Payment payment, PaymentCreateRequest request) {
-        PaymentResponse response = new PaymentResponse();
-        response.setStatus("PENDING");
-        response.setExpireTime(900); // 15分钟过期
-
-        switch (payment.getPaymentMethod()) {
-            case ALIPAY:
-                response.setPaymentUrl("https://qr.alipay.com/bax03055hjkbzgw0qnhz008a");
-                response.setNeedRedirect(true);
-                break;
-            case WECHAT:
-                response.setQrCode("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAA...");
-                response.setNeedRedirect(false);
-                break;
-            case BANK_TRANSFER:
-                response.setPaymentUrl("请转账到指定账户，转账完成后联系客服确认");
-                response.setNeedRedirect(false);
-                break;
+        // 只支持支付宝支付，删除其他模拟的支付方式
+        if (payment.getPaymentMethod() != Payment.PaymentMethod.ALIPAY) {
+            throw new BusinessException("目前只支持支付宝支付");
         }
 
-        return response;
+        // 使用真正的支付宝服务
+        return alipayService.createPayment(payment, request);
     }
 
     private boolean validateCallbackSign(PaymentCallbackRequest request) {
-        // 实际实现需要根据第三方支付平台的签名验证规则
-        return true;
+        // 根据支付方式验证签名，目前只支持支付宝
+        if (request.getRawData() instanceof Map) {
+            @SuppressWarnings("unchecked")
+            Map<String, Object> rawParams = (Map<String, Object>) request.getRawData();
+            Map<String, String> params = new HashMap<>();
+            for (Map.Entry<String, Object> entry : rawParams.entrySet()) {
+                params.put(entry.getKey(), entry.getValue() == null ? null : entry.getValue().toString());
+            }
+            return alipayService.verifyNotifySign(params);
+        }
+        log.warn("回调数据格式错误，无法验证签名");
+        return false;
     }
 
     private Payment.PaymentStatus parsePaymentStatus(String status) {
@@ -417,21 +473,25 @@ public class PaymentServiceImpl implements PaymentService {
     }
 
     private boolean processThirdPartyRefund(Payment originalPayment, Payment refundPayment, RefundRequest request) {
-        // 根据支付方式调用不同的退款接口
-        switch (originalPayment.getPaymentMethod()) {
-            case ALIPAY:
-            case WECHAT:
-                return true; // 模拟退款成功
-            case BANK_TRANSFER:
-                return true; // 现金和银行转账退款需要人工处理
-            default:
-                return false;
+        // 只支持支付宝退款，删除其他模拟的退款方式
+        if (originalPayment.getPaymentMethod() != Payment.PaymentMethod.ALIPAY) {
+            throw new BusinessException("目前只支持支付宝退款");
         }
+
+        // 使用真正的支付宝退款服务
+        return alipayService.refund(originalPayment, refundPayment,
+                                  request.getRefundAmount(), request.getRefundReason());
     }
 
     private Payment.PaymentStatus queryThirdPartyPaymentStatus(Payment payment) {
-        // 查询第三方支付状态
-        return payment.getStatus();
+        // 只支持支付宝状态查询
+        if (payment.getPaymentMethod() != Payment.PaymentMethod.ALIPAY) {
+            throw new BusinessException("目前只支持支付宝支付状态查询");
+        }
+
+        // 调用支付宝真实的状态查询 API
+        String statusStr = alipayService.queryPaymentStatus(payment);
+        return parsePaymentStatus(statusStr);
     }
 
     private void createPaymentRecord(Payment payment, Payment.PaymentStatus status, String responseData, String errorMessage) {
@@ -534,5 +594,25 @@ public class PaymentServiceImpl implements PaymentService {
         dto.setErrorMessage(record.getErrorMessage());
         dto.setCreatedAt(record.getCreatedAt());
         return dto;
+    }
+
+    private boolean verifyAlipaySign(PaymentCallbackRequest request) {
+        try {
+            // 使用支付宝服务验证签名
+            if (request.getRawData() instanceof Map) {
+                @SuppressWarnings("unchecked")
+                Map<String, Object> rawParams = (Map<String, Object>) request.getRawData();
+                Map<String, String> params = new HashMap<>();
+                for (Map.Entry<String, Object> entry : rawParams.entrySet()) {
+                    params.put(entry.getKey(), entry.getValue() == null ? null : entry.getValue().toString());
+                }
+                return alipayService.verifyNotifySign(params);
+            }
+            log.warn("支付宝回调数据格式错误，无法验证签名");
+            return false;
+        } catch (Exception e) {
+            log.error("支付宝签名验证异常", e);
+            return false;
+        }
     }
 }

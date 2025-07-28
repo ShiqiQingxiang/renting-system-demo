@@ -22,6 +22,11 @@ public interface PaymentService {
     void handlePaymentCallback(PaymentCallbackRequest request);
 
     /**
+     * 处理支付宝回调
+     */
+    void handleAlipayCallback(PaymentCallbackRequest request);
+
+    /**
      * 处理退款
      */
     PaymentDto processRefund(RefundRequest request, Long operatorId);

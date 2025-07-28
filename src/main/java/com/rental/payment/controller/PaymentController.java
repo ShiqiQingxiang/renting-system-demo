@@ -12,8 +12,10 @@ import io.swagger.v3.oas.annotations.media.ExampleObject;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -26,11 +28,12 @@ import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
-import java.util.List;
+import java.util.*;
 
 @RestController
 @RequestMapping("/api/payments")
 @RequiredArgsConstructor
+@Slf4j
 @Tag(name = "支付管理", description = "支付管理相关接口，包括支付的创建、查询、回调处理、退款等功能")
 @SecurityRequirement(name = "bearerAuth")
 public class PaymentController {
@@ -203,7 +206,6 @@ public class PaymentController {
         request.setCreatedDateFrom(createdDateFrom);
         request.setCreatedDateTo(createdDateTo);
         request.setThirdPartyTransactionId(thirdPartyTransactionId);
-        request.setPaymentNo(paymentNo);
 
         Page<PaymentDto> result = paymentService.searchPayments(request, pageable);
         return ResponseEntity.ok(ApiResponse.success(result));
@@ -298,5 +300,73 @@ public class PaymentController {
             @Parameter(description = "支付单号") @RequestParam String paymentNo) {
         boolean exists = paymentService.paymentExists(paymentNo);
         return ResponseEntity.ok(ApiResponse.success(exists));
+    }
+
+    @PostMapping("/callback/alipay")
+    @Operation(summary = "支付宝支付回调", description = "处理支付宝的异步通知回调")
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "处理成功")
+    public ResponseEntity<String> handleAlipayCallback(
+            HttpServletRequest request) {
+        
+        try {
+            // 获取支付宝POST过来的所有参数
+            Map<String, String> params = new HashMap<>();
+            Enumeration<String> parameterNames = request.getParameterNames();
+            
+            while (parameterNames.hasMoreElements()) {
+                String paramName = parameterNames.nextElement();
+                String paramValue = request.getParameter(paramName);
+                params.put(paramName, paramValue);
+                log.debug("支付宝回调参数：{} = {}", paramName, paramValue);
+            }
+
+            // 直接调用 PaymentService 处理回调
+            paymentService.handleAlipayCallback(parseAlipayCallback(params));
+
+            // 返回success告诉支付宝处理成功
+            return ResponseEntity.ok("success");
+            
+        } catch (Exception e) {
+            log.error("处理支付宝回调失败", e);
+            // 返回failure告诉支付宝处理失败，支付宝会重试
+            return ResponseEntity.ok("failure");
+        }
+    }
+
+    /**
+     * 解析支付宝回调参数
+     */
+    private PaymentCallbackRequest parseAlipayCallback(Map<String, String> params) {
+        PaymentCallbackRequest request = new PaymentCallbackRequest();
+        request.setPaymentNo(params.get("out_trade_no"));
+        request.setThirdPartyTransactionId(params.get("trade_no"));
+        request.setStatus(convertAlipayTradeStatus(params.get("trade_status")));
+        Map<String, Object> rawData = new java.util.HashMap<>();
+        for (Map.Entry<String, String> entry : params.entrySet()) {
+            rawData.put(entry.getKey(), entry.getValue());
+        }
+        request.setRawData(rawData);
+        return request;
+    }
+
+    /**
+     * 转换支付宝交易状态
+     */
+    private String convertAlipayTradeStatus(String tradeStatus) {
+        if (tradeStatus == null) {
+            return "PENDING";
+        }
+        
+        switch (tradeStatus.toUpperCase()) {
+            case "TRADE_SUCCESS":
+            case "TRADE_FINISHED":
+                return "SUCCESS";
+            case "TRADE_CLOSED":
+                return "FAILED";
+            case "WAIT_BUYER_PAY":
+                return "PENDING";
+            default:
+                return "PENDING";
+        }
     }
 }

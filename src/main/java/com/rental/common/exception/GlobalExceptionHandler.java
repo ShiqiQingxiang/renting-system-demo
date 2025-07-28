@@ -15,6 +15,8 @@ import org.springframework.security.authentication.DisabledException;
 import org.springframework.security.authentication.LockedException;
 import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.servlet.NoHandlerFoundException;
+import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.web.bind.MissingServletRequestParameterException;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.ConstraintViolationException;
@@ -116,6 +118,38 @@ public class GlobalExceptionHandler {
         log.error("约束违反: {}", e.getMessage(), e);
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                 .body(ApiResponse.error(ResponseCode.VALIDATION_ERROR, "参数约束违反").path(request.getRequestURI()));
+    }
+
+    /**
+     * 处理JSON解析异常
+     */
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public ResponseEntity<ApiResponse<Object>> handleHttpMessageNotReadableException(HttpMessageNotReadableException e, HttpServletRequest request) {
+        log.error("JSON解析异常: {}", e.getMessage(), e);
+        
+        String message = "请求数据格式错误";
+        
+        // 根据异常信息提供更具体的错误描述
+        if (e.getMessage().contains("Illegal unquoted character")) {
+            message = "JSON格式错误：请求数据包含非法字符，请检查是否包含换行符或特殊控制字符";
+        } else if (e.getMessage().contains("Unexpected token")) {
+            message = "JSON格式错误：请求数据包含意外的字符";
+        } else if (e.getMessage().contains("JSON parse error")) {
+            message = "JSON解析失败：请检查请求数据的格式";
+        }
+        
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(ApiResponse.error(ResponseCode.VALIDATION_ERROR, message).path(request.getRequestURI()));
+    }
+
+    /**
+     * 处理缺少请求参数异常
+     */
+    @ExceptionHandler(MissingServletRequestParameterException.class)
+    public ResponseEntity<ApiResponse<Object>> handleMissingServletRequestParameterException(MissingServletRequestParameterException e, HttpServletRequest request) {
+        log.error("缺少请求参数: {}", e.getMessage(), e);
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(ApiResponse.error(ResponseCode.VALIDATION_ERROR, "缺少必需的请求参数: " + e.getParameterName()).path(request.getRequestURI()));
     }
 
     /**
