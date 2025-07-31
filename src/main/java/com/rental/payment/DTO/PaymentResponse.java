@@ -22,6 +22,9 @@ public class PaymentResponse {
     @Schema(description = "第三方支付订单号")
     private String thirdPartyOrderNo;
 
+    @Schema(description = "商家ID")
+    private Long merchantId;
+
     @Schema(description = "支付表单HTML（用于跳转支付）")
     private String paymentForm;
 

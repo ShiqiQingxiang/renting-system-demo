@@ -1,19 +1,12 @@
 -- 租赁系统数据库初始化脚本
--- Database: rental_system
-
--- 创建数据库（如果不存在）
-CREATE DATABASE IF NOT EXISTS rentingdb
-CHARACTER SET utf8mb4
-COLLATE utf8mb4_unicode_ci;
-
-USE rentingdb;
+-- 注意：数据库 rentingdb 应该已经存在，这里只创建表结构
 
 -- ================================
 -- 1. 用户相关表
 -- ================================
 
 -- 用户表
-CREATE TABLE users (
+CREATE TABLE IF NOT EXISTS users (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
     username VARCHAR(50) UNIQUE NOT NULL COMMENT '用户名',
     password VARCHAR(255) NOT NULL COMMENT '密码',
@@ -28,7 +21,7 @@ CREATE TABLE users (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='用户表';
 
 -- 用户资料表
-CREATE TABLE user_profiles (
+CREATE TABLE IF NOT EXISTS user_profiles (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
     user_id BIGINT NOT NULL COMMENT '用户ID',
     real_name VARCHAR(100) COMMENT '真实姓名',
@@ -49,7 +42,7 @@ CREATE TABLE user_profiles (
 -- ================================
 
 -- 权限表
-CREATE TABLE permissions (
+CREATE TABLE IF NOT EXISTS permissions (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(100) UNIQUE NOT NULL COMMENT '权限名称',
     description VARCHAR(255) COMMENT '权限描述',
@@ -65,7 +58,7 @@ CREATE TABLE permissions (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='权限表';
 
 -- 角色表
-CREATE TABLE roles (
+CREATE TABLE IF NOT EXISTS roles (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(50) UNIQUE NOT NULL COMMENT '角色名称',
     description VARCHAR(255) COMMENT '角色描述',
@@ -76,7 +69,7 @@ CREATE TABLE roles (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='角色表';
 
 -- 角色权限关联表
-CREATE TABLE role_permissions (
+CREATE TABLE IF NOT EXISTS role_permissions (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
     role_id BIGINT NOT NULL COMMENT '角色ID',
     permission_id BIGINT NOT NULL COMMENT '权限ID',
@@ -87,7 +80,7 @@ CREATE TABLE role_permissions (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='角色权限关联表';
 
 -- 用户角色关联表
-CREATE TABLE user_roles (
+CREATE TABLE IF NOT EXISTS user_roles (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
     user_id BIGINT NOT NULL COMMENT '用户ID',
     role_id BIGINT NOT NULL COMMENT '角色ID',
@@ -102,7 +95,7 @@ CREATE TABLE user_roles (
 -- ================================
 
 -- 用户会话表
-CREATE TABLE user_sessions (
+CREATE TABLE IF NOT EXISTS user_sessions (
     session_id VARCHAR(64) PRIMARY KEY COMMENT '会话ID',
     user_id BIGINT NOT NULL COMMENT '用户ID',
     device_info VARCHAR(255) COMMENT '设备信息',
@@ -117,7 +110,7 @@ CREATE TABLE user_sessions (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='用户会话表';
 
 -- 刷新令牌表
-CREATE TABLE refresh_tokens (
+CREATE TABLE IF NOT EXISTS refresh_tokens (
     id BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '主键ID',
     token VARCHAR(255) NOT NULL UNIQUE COMMENT '刷新令牌',
     user_id BIGINT NOT NULL COMMENT '用户ID',
@@ -135,7 +128,7 @@ CREATE TABLE refresh_tokens (
 -- ================================
 
 -- 物品分类表
-CREATE TABLE item_categories (
+CREATE TABLE IF NOT EXISTS item_categories (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(100) NOT NULL COMMENT '分类名称',
     description TEXT COMMENT '分类描述',
@@ -149,7 +142,7 @@ CREATE TABLE item_categories (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='物品分类表';
 
 -- 物品表
-CREATE TABLE items (
+CREATE TABLE IF NOT EXISTS items (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(200) NOT NULL COMMENT '物品名称',
     description TEXT COMMENT '物品描述',
@@ -193,7 +186,7 @@ CREATE TABLE items (
 -- ================================
 
 -- 订单表
-CREATE TABLE orders (
+CREATE TABLE IF NOT EXISTS orders (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
     order_no VARCHAR(64) UNIQUE NOT NULL COMMENT '订单编号',
     user_id BIGINT NOT NULL COMMENT '用户ID',
@@ -214,7 +207,7 @@ CREATE TABLE orders (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='订单表';
 
 -- 订单项表
-CREATE TABLE order_items (
+CREATE TABLE IF NOT EXISTS order_items (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
     order_id BIGINT NOT NULL COMMENT '订单ID',
     item_id BIGINT NOT NULL COMMENT '物品ID',
@@ -233,10 +226,11 @@ CREATE TABLE order_items (
 -- ================================
 
 -- 支付表
-CREATE TABLE payments (
+CREATE TABLE IF NOT EXISTS payments (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
     payment_no VARCHAR(64) UNIQUE NOT NULL COMMENT '支付编号',
     order_id BIGINT NOT NULL COMMENT '订单ID',
+    merchant_id BIGINT NOT NULL COMMENT '商家ID（对应users表中的商家用户）',
     amount DECIMAL(12, 2) NOT NULL COMMENT '支付金额',
     payment_method ENUM('ALIPAY', 'WECHAT', 'CASH', 'BANK_TRANSFER') NOT NULL COMMENT '支付方式',
     payment_type ENUM('RENTAL', 'DEPOSIT', 'REFUND') NOT NULL COMMENT '支付类型',
@@ -245,14 +239,17 @@ CREATE TABLE payments (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
     FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE RESTRICT,
+    FOREIGN KEY (merchant_id) REFERENCES users(id) ON DELETE RESTRICT,
     INDEX idx_payment_no (payment_no),
     INDEX idx_order_id (order_id),
+    INDEX idx_merchant_id (merchant_id),
     INDEX idx_status (status),
-    INDEX idx_created_at (created_at)
+    INDEX idx_created_at (created_at),
+    INDEX idx_merchant_status (merchant_id, status)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='支付表';
 
 -- 支付记录表
-CREATE TABLE payment_records (
+CREATE TABLE IF NOT EXISTS payment_records (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
     payment_id BIGINT NOT NULL COMMENT '支付ID',
     status ENUM('PENDING', 'SUCCESS', 'FAILED', 'CANCELLED') NOT NULL COMMENT '支付状态',
@@ -264,12 +261,37 @@ CREATE TABLE payment_records (
     INDEX idx_status (status)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='支付记录表';
 
+-- 商家支付配置表
+CREATE TABLE IF NOT EXISTS merchant_payment_configs (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    merchant_id BIGINT NOT NULL COMMENT '商家ID（对应users表中的商家用户）',
+    alipay_app_id VARCHAR(32) NOT NULL COMMENT '支付宝应用ID',
+    encrypted_private_key TEXT NOT NULL COMMENT '加密存储的商家私钥',
+    alipay_public_key TEXT NOT NULL COMMENT '支付宝公钥',
+    alipay_account VARCHAR(100) NOT NULL COMMENT '支付宝收款账户',
+    notify_url VARCHAR(255) NOT NULL COMMENT '异步通知地址',
+    return_url VARCHAR(255) NOT NULL COMMENT '同步返回地址',
+    status ENUM('ACTIVE', 'INACTIVE', 'PENDING_REVIEW') DEFAULT 'PENDING_REVIEW' COMMENT '配置状态',
+    remark VARCHAR(500) COMMENT '备注信息',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    
+    -- 外键约束
+    FOREIGN KEY (merchant_id) REFERENCES users(id) ON DELETE CASCADE,
+    
+    -- 索引
+    UNIQUE KEY uk_merchant_id (merchant_id) COMMENT '商家ID唯一索引',
+    UNIQUE KEY uk_alipay_app_id (alipay_app_id) COMMENT '支付宝应用ID唯一索引',
+    INDEX idx_status (status) COMMENT '状态索引',
+    INDEX idx_created_at (created_at) COMMENT '创建时间索引'
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='商家支付配置表';
+
 -- ================================
 -- 7. 合同相关表
 -- ================================
 
 -- 合同模板表
-CREATE TABLE contract_templates (
+CREATE TABLE IF NOT EXISTS contract_templates (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(200) NOT NULL COMMENT '模板名称',
     content TEXT NOT NULL COMMENT '模板内容',
@@ -282,7 +304,7 @@ CREATE TABLE contract_templates (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='合同模板表';
 
 -- 合同表
-CREATE TABLE contracts (
+CREATE TABLE IF NOT EXISTS contracts (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
     contract_no VARCHAR(64) UNIQUE NOT NULL COMMENT '合同编号',
     order_id BIGINT NOT NULL COMMENT '订单ID',
@@ -305,7 +327,7 @@ CREATE TABLE contracts (
 -- ================================
 
 -- 财务记录表
-CREATE TABLE finance_records (
+CREATE TABLE IF NOT EXISTS finance_records (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
     record_no VARCHAR(64) UNIQUE NOT NULL COMMENT '记录编号',
     order_id BIGINT COMMENT '订单ID',
@@ -324,7 +346,7 @@ CREATE TABLE finance_records (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='财务记录表';
 
 -- 财务报表表
-CREATE TABLE finance_reports (
+CREATE TABLE IF NOT EXISTS finance_reports (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
     report_type ENUM('DAILY', 'WEEKLY', 'MONTHLY', 'YEARLY') NOT NULL COMMENT '报表类型',
     period_start DATE NOT NULL COMMENT '期间开始',
@@ -343,7 +365,7 @@ CREATE TABLE finance_reports (
 -- ================================
 
 -- 评价表
-CREATE TABLE reviews (
+CREATE TABLE IF NOT EXISTS reviews (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
     review_no VARCHAR(64) UNIQUE NOT NULL COMMENT '评价编号',
     order_id BIGINT NOT NULL COMMENT '订单ID',
@@ -379,7 +401,7 @@ CREATE TABLE reviews (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='评价表';
 
 -- 评价回复表
-CREATE TABLE review_replies (
+CREATE TABLE IF NOT EXISTS review_replies (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
     review_id BIGINT NOT NULL COMMENT '评价ID',
     replier_id BIGINT NOT NULL COMMENT '回复者ID',
@@ -394,7 +416,7 @@ CREATE TABLE review_replies (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='评价回复表';
 
 -- 反馈表
-CREATE TABLE feedbacks (
+CREATE TABLE IF NOT EXISTS feedbacks (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
     feedback_no VARCHAR(64) UNIQUE NOT NULL COMMENT '反馈编号',
     user_id BIGINT NOT NULL COMMENT '反馈用户ID',
@@ -422,7 +444,7 @@ CREATE TABLE feedbacks (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='反馈表';
 
 -- 评价有用性表
-CREATE TABLE review_helpfulness (
+CREATE TABLE IF NOT EXISTS review_helpfulness (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
     review_id BIGINT NOT NULL COMMENT '评价ID',
     user_id BIGINT NOT NULL COMMENT '用户ID',
@@ -440,7 +462,7 @@ CREATE TABLE review_helpfulness (
 -- ================================
 
 -- 通知表
-CREATE TABLE notifications (
+CREATE TABLE IF NOT EXISTS notifications (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
     user_id BIGINT NOT NULL COMMENT '用户ID',
     type ENUM('EMAIL', 'SMS', 'SYSTEM') NOT NULL COMMENT '通知类型',
@@ -465,3 +487,53 @@ CREATE TABLE notifications (
 ALTER TABLE items ADD FULLTEXT(name, description, features);
 ALTER TABLE reviews ADD FULLTEXT(title, content);
 ALTER TABLE feedbacks ADD FULLTEXT(title, content);
+
+-- ================================
+-- 12. 文件管理相关表
+-- ================================
+
+-- 文件分类表
+CREATE TABLE IF NOT EXISTS file_category (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(50) NOT NULL COMMENT '分类名称',
+    code VARCHAR(20) NOT NULL UNIQUE COMMENT '分类代码',
+    description TEXT COMMENT '分类描述',
+    allowed_extensions TEXT COMMENT '允许的扩展名(逗号分隔)',
+    max_file_size BIGINT DEFAULT 10485760 COMMENT '最大文件大小(字节)',
+    is_active BOOLEAN DEFAULT TRUE COMMENT '是否启用',
+    sort_order INT DEFAULT 0 COMMENT '排序顺序',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    INDEX idx_code (code),
+    INDEX idx_active (is_active)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='文件分类表';
+
+-- 文件信息表
+CREATE TABLE IF NOT EXISTS file_info (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    original_name VARCHAR(255) NOT NULL COMMENT '原始文件名',
+    stored_name VARCHAR(255) NOT NULL COMMENT '存储文件名',
+    file_path VARCHAR(500) NOT NULL COMMENT '文件路径',
+    file_size BIGINT NOT NULL COMMENT '文件大小(字节)',
+    content_type VARCHAR(100) NOT NULL COMMENT '文件类型',
+    file_extension VARCHAR(10) COMMENT '文件扩展名',
+    file_hash VARCHAR(64) COMMENT '文件哈希值(MD5)',
+    category_id BIGINT COMMENT '分类ID',
+    uploader_id BIGINT NOT NULL COMMENT '上传者ID',
+    related_entity_type VARCHAR(50) COMMENT '关联实体类型(ITEM/USER/CONTRACT等)',
+    related_entity_id BIGINT COMMENT '关联实体ID',
+    access_level VARCHAR(20) DEFAULT 'PRIVATE' COMMENT '访问级别(PUBLIC/PRIVATE)',
+    download_count INT DEFAULT 0 COMMENT '下载次数',
+    is_active BOOLEAN DEFAULT TRUE COMMENT '是否有效',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    
+    FOREIGN KEY (category_id) REFERENCES file_category(id),
+    FOREIGN KEY (uploader_id) REFERENCES users(id),
+    INDEX idx_uploader (uploader_id),
+    INDEX idx_category (category_id),
+    INDEX idx_hash (file_hash),
+    INDEX idx_entity (related_entity_type, related_entity_id),
+    INDEX idx_path (file_path),
+    INDEX idx_active (is_active)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='文件信息表';

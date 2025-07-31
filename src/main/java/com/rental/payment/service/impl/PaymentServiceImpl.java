@@ -6,6 +6,7 @@ import com.rental.order.model.Order;
 import com.rental.order.repository.OrderRepository;
 import com.rental.payment.DTO.*;
 import com.rental.payment.integration.alipay.AlipayService;
+import com.rental.payment.integration.alipay.MultiMerchantAlipayService;
 import com.rental.payment.model.Payment;
 import com.rental.payment.model.PaymentRecord;
 import com.rental.payment.repository.PaymentRepository;
@@ -40,6 +41,7 @@ public class PaymentServiceImpl implements PaymentService {
     private final OrderRepository orderRepository;
     private final UserRepository userRepository;
     private final AlipayService alipayService;
+    private final MultiMerchantAlipayService multiMerchantAlipayService;
 
     @Override
     @Transactional
@@ -73,10 +75,14 @@ public class PaymentServiceImpl implements PaymentService {
             throw new BusinessException("该订单已有待支付的支付记录");
         }
 
+        // 获取商家ID（从订单的第一个物品获取所有者ID）
+        Long merchantId = getMerchantIdFromOrder(order);
+
         // 创建支付记录
         Payment payment = new Payment();
-        payment.setPaymentNo(generatePaymentNo());
+        payment.setPaymentNo(generatePaymentNo()); 
         payment.setOrder(order);
+        payment.setMerchantId(merchantId);
         payment.setAmount(request.getAmount());
         payment.setPaymentMethod(request.getPaymentMethod());
         payment.setPaymentType(request.getPaymentType());
@@ -146,10 +152,11 @@ public class PaymentServiceImpl implements PaymentService {
     }
 
     /**
-     * 处理支付回调
+     * 处理支付回调（跳过签名验证）
+     * 注意：此方法不是接口方法，不需要 @Override 注解
      */
     @Transactional
-    private void handlePaymentCallbackWithoutSignVerification(PaymentCallbackRequest request) {
+    public void handlePaymentCallbackWithoutSignVerification(PaymentCallbackRequest request) {
         log.info("处理支付回调业务逻辑，支付单号：{}", request.getPaymentNo());
 
         Payment payment = paymentRepository.findByPaymentNo(request.getPaymentNo())
@@ -426,8 +433,8 @@ public class PaymentServiceImpl implements PaymentService {
             throw new BusinessException("目前只支持支付宝支付");
         }
 
-        // 使用真正的支付宝服务
-        return alipayService.createPayment(payment, request);
+        // 使用多商家支付宝服务
+        return multiMerchantAlipayService.createPayment(payment.getMerchantId(), payment, request);
     }
 
     private boolean validateCallbackSign(PaymentCallbackRequest request) {
@@ -439,7 +446,16 @@ public class PaymentServiceImpl implements PaymentService {
             for (Map.Entry<String, Object> entry : rawParams.entrySet()) {
                 params.put(entry.getKey(), entry.getValue() == null ? null : entry.getValue().toString());
             }
-            return alipayService.verifyNotifySign(params);
+            
+            // 从支付单号获取商家ID进行签名验证
+            Payment payment = paymentRepository.findByPaymentNo(request.getPaymentNo())
+                .orElse(null);
+            if (payment != null && payment.getMerchantId() != null) {
+                return multiMerchantAlipayService.verifyNotifySign(payment.getMerchantId(), params);
+            } else {
+                // 兼容旧的统一配置验证方式
+                return alipayService.verifyNotifySign(params);
+            }
         }
         log.warn("回调数据格式错误，无法验证签名");
         return false;
@@ -614,5 +630,31 @@ public class PaymentServiceImpl implements PaymentService {
             log.error("支付宝签名验证异常", e);
             return false;
         }
+    }
+
+    /**
+     * 从订单中获取商家ID
+     * 假设一个订单只包含同一个商家的物品，从第一个OrderItem获取物品所有者作为商家
+     */
+    private Long getMerchantIdFromOrder(Order order) {
+        if (order.getOrderItems() == null || order.getOrderItems().isEmpty()) {
+            throw new BusinessException("订单没有物品信息，无法获取商家ID");
+        }
+        
+        // 获取第一个订单项的物品所有者作为商家
+        Long merchantId = order.getOrderItems().get(0).getItem().getOwner().getId();
+        
+        log.debug("从订单获取商家ID，订单号：{}，商家ID：{}", order.getOrderNo(), merchantId);
+        
+        // 验证订单中所有物品是否属于同一个商家（可选的严格验证）
+        boolean singleMerchant = order.getOrderItems().stream()
+                .allMatch(item -> item.getItem().getOwner().getId().equals(merchantId));
+        
+        if (!singleMerchant) {
+            log.warn("订单包含多个商家的物品，订单号：{}", order.getOrderNo());
+            throw new BusinessException("订单包含多个商家的物品，请分别下单");
+        }
+        
+        return merchantId;
     }
 }

@@ -147,6 +147,13 @@
             <version>2.9.1</version>
         </dependency>
 
+        <!-- 编码解码工具（包含MD5等） -->
+        <dependency>
+            <groupId>commons-codec</groupId>
+            <artifactId>commons-codec</artifactId>
+            <version>1.15</version>
+        </dependency>
+
     </dependencies>
 
     <build>

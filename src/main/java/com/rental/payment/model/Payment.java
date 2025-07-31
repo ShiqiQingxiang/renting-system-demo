@@ -20,8 +20,10 @@ import java.util.List;
 @Table(name = "payments", indexes = {
     @Index(name = "idx_payment_no", columnList = "payment_no"),
     @Index(name = "idx_order_id", columnList = "order_id"),
+    @Index(name = "idx_merchant_id", columnList = "merchant_id"),
     @Index(name = "idx_status", columnList = "status"),
-    @Index(name = "idx_created_at", columnList = "created_at")
+    @Index(name = "idx_created_at", columnList = "created_at"),
+    @Index(name = "idx_merchant_status", columnList = "merchant_id, status")
 })
 @Getter
 @Setter
@@ -41,6 +43,10 @@ public class Payment {
     @JoinColumn(name = "order_id", nullable = false)
     @NotNull(message = "订单不能为空")
     private Order order;
+
+    @Column(name = "merchant_id", nullable = false)
+    @NotNull(message = "商家ID不能为空")
+    private Long merchantId;
 
     @Column(nullable = false, precision = 12, scale = 2)
     @NotNull(message = "支付金额不能为空")

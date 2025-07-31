@@ -19,6 +19,7 @@ DROP TABLE IF EXISTS refresh_tokens;
 DROP TABLE IF EXISTS user_profiles;
 DROP TABLE IF EXISTS notifications;
 DROP TABLE IF EXISTS payment_records;
+DROP TABLE IF EXISTS merchant_payment_configs;
 DROP TABLE IF EXISTS payments;
 DROP TABLE IF EXISTS finance_records;
 DROP TABLE IF EXISTS finance_reports;

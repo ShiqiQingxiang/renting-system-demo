@@ -75,4 +75,11 @@ public class PermissionConstants {
     public static final String NOTIFICATION_VIEW = "NOTIFICATION_VIEW";
     public static final String NOTIFICATION_SEND = "NOTIFICATION_SEND";
     public static final String NOTIFICATION_DELETE = "NOTIFICATION_DELETE";
+
+    // 文件管理权限
+    public static final String FILE_UPLOAD = "FILE_UPLOAD";
+    public static final String FILE_DOWNLOAD = "FILE_DOWNLOAD";
+    public static final String FILE_MANAGE = "FILE_MANAGE";
+    public static final String FILE_DELETE = "FILE_DELETE";
+    public static final String FILE_VIEW_ALL = "FILE_VIEW_ALL";
 }
